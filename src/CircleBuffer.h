@@ -17,8 +17,8 @@ namespace medium {
     int mMaxSize;
     int mSize;
     T* mBuffer;
-    int mStart;
-    int mEnd;
+    int mHead;
+    int mTail;
 
   };
 
@@ -26,7 +26,7 @@ namespace medium {
 
   template<typename T>
   CircleBuffer<T>::CircleBuffer(int size)
-    : mMaxSize(size), mSize(0), mStart(0), mEnd(0)
+    : mMaxSize(size), mSize(0), mHead(0), mTail(0)
   {
     mBuffer = new T[mMaxSize];
   }
@@ -47,8 +47,8 @@ namespace medium {
   void CircleBuffer<T>::put(const T& v)
   {
     if (mSize < mMaxSize) {
-      mEnd = (mEnd + 1) % mMaxSize;
-      mBuffer[mEnd] = v;
+      mBuffer[mTail] = v;
+      mTail = (mTail + 1) % mMaxSize;
       mSize++;
     }
   }
@@ -58,8 +58,8 @@ namespace medium {
   {
     T retval;
     if (mSize > 0) {
-      retval = mBuffer[mStart];
-      mStart = (mStart + 1) % mMaxSize;
+      retval = mBuffer[mHead];
+      mHead = (mHead + 1) % mMaxSize;
       mSize--;
     }
 

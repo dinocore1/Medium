@@ -12,7 +12,6 @@ namespace medium {
     Global() {
 
       std::default_random_engine generator(1);
-      //std::uniform_int_distribution<RabinKarpHash::hashvalue_t> distro(1, 255);
 
       for (int i = 0; i < 256; i++) {
         hashTable[i] = generator();

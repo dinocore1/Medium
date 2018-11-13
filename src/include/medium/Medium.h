@@ -2,12 +2,14 @@
 #ifndef MEDIUM_H_
 #define MEDIUM_H_
 
+#include <memory>
+
 namespace medium {
 
   typedef uint8_t byte;
-  
-  typedef uint32_t index_t;
-  typedef uint8_t block_t[4096];
+
+  template<typename T>
+  using sp = std::shared_ptr<T>;
 
   class OutputStream {
   public:
@@ -26,6 +28,14 @@ namespace medium {
     * @return number of bytes read, or -1 if end-of-file
     */
     virtual int read(byte* buf, int maxLen) = 0;
+  };
+
+  int pump(InputStream*, OutputStream*);
+
+  class NullOutputStream : public OutputStream {
+  public:
+    void close();
+    void write(byte*, int len);
   };
 }
 

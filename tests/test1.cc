@@ -2,10 +2,14 @@
 #include "catch.hpp"
 
 #include "stdafx.h"
+#include <medium/Medium.h>
 #include "RabinKarp.h"
 #include "CircleBuffer.h"
+#include <medium/DataSplitterOutputStream.h>
+#include "MathUtils.h"
 
 #include <iostream>
+#include <random>
 
 using namespace std;
 using namespace medium;
@@ -56,3 +60,38 @@ TEST_CASE("circle buffer", "[CircleBuffer]") {
   REQUIRE(buffer.get() == 3);
 }
 
+sp<OutputStream> createNullOutput()
+{
+  return std::make_shared<NullOutputStream>();
+}
+
+TEST_CASE("data split stream", "[DataSplitterOutputStream]") {
+  
+  std::default_random_engine gen(1);
+  std::uniform_int_distribution<unsigned short> distro;
+  int count;
+  const int buflen = 1024;
+  byte buf[buflen];
+  
+  DataSplitterOutpuStream dout([&] {
+    count++;
+    return std::make_shared<NullOutputStream>();
+  });
+
+  StorelessStatsF stats;
+
+  for (int q = 0; q < 100; q++) {
+    count = 0;
+    for (int j = 0; j < 10*1024; j++) {
+      for (int i = 0; i < buflen; i++) {
+        buf[i] = (byte)distro(gen);
+      }
+      dout.write(buf, buflen);
+    }
+
+    stats.increment(count);
+
+    std::cout << "num splits in 10 MiB: " << count << " avg: " << stats.getMean() << ":" << stats.getStdDiv() << std::endl;
+  }
+
+}

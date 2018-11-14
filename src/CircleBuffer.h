@@ -9,7 +9,7 @@ namespace medium {
    CircleBuffer(int size);
    ~CircleBuffer();
 
-   inline int size();
+   inline int size() const;
    void put(const T&);
    T get();
 
@@ -38,7 +38,7 @@ namespace medium {
   }
 
   template<typename T>
-  int CircleBuffer<T>::size()
+  int CircleBuffer<T>::size() const
   {
     return mSize;
   }

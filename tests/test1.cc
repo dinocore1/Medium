@@ -6,13 +6,14 @@
 #include "RabinKarp.h"
 #include "CircleBuffer.h"
 #include <medium/DataSplitterOutputStream.h>
-#include "MathUtils.h"
+#include <baseline/MathUtils.h>
 
 #include <iostream>
 #include <random>
 
 using namespace std;
 using namespace medium;
+using namespace baseline;
 
 
 TEST_CASE("rolling hash", "[RabinKarp]") {
@@ -89,7 +90,7 @@ TEST_CASE("data split stream", "[DataSplitterOutputStream]") {
       dout.write(buf, buflen);
     }
 
-    stats.increment(count);
+    stats.increment((float)count);
 
     std::cout << "num splits in 10 MiB: " << count << " avg: " << stats.getMean() << ":" << stats.getStdDiv() << std::endl;
   }

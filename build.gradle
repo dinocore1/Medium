@@ -1,0 +1,28 @@
+buildscript {
+  repositories {
+      mavenCentral()
+  }
+
+  dependencies { 
+      classpath 'com.dev-smart:flintbuild:0.0.1'
+  }
+}
+
+apply plugin: com.devsmart.flintbuild.FlintPlugin
+
+flint {
+
+  library {
+    name 'baseline'
+    gitUri 'https://github.com/dinocore1/Baseline.git'
+    gitTag 'master'
+    cmakeArgs (['BUILD_TESTS=OFF'])
+  }
+  
+  target {
+    name 'linux'
+  }
+  
+  
+
+}

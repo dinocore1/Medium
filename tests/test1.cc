@@ -4,7 +4,6 @@
 #include "stdafx.h"
 #include <medium/Medium.h>
 #include "RabinKarp.h"
-#include "CircleBuffer.h"
 #include <medium/DataSplitterOutputStream.h>
 #include <baseline/MathUtils.h>
 

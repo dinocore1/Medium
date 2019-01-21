@@ -1,51 +1,53 @@
 
-#include "stdafx.h"
-#include "Rabinkarp.h"
 
 #include <random>
 
+#include <baseline/Baseline.h>
+#include "RabinKarp.h"
+
+
 namespace medium {
 
-  static const RabinKarpHash::hashvalue_t B = 37;
+static const RabinKarpHash::hashvalue_t B = 37;
 
-  static struct Global {
-    Global() {
+static struct Global {
+  Global() {
 
-      std::default_random_engine generator(1);
+    std::default_random_engine generator( 1 );
 
-      for (int i = 0; i < 256; i++) {
-        hashTable[i] = generator();
-      }
-    }
-
-    RabinKarpHash::hashvalue_t hashTable[256];
-  } gTable;
-
-  
-
-  RabinKarpHash::RabinKarpHash(uint32_t len)
-    : mLen(len), mBtoN(1), mHashValue(0)
-  {
-    for (int i = 0; i < mLen; i++) {
-      mBtoN *= B;
+    for( int i = 0; i < 256; i++ ) {
+      hashTable[i] = generator();
     }
   }
 
-  void RabinKarpHash::reset()
-  {
-    mHashValue = 0;
-  }
-
-  void RabinKarpHash::eat(uint8_t in)
-  {
-    mHashValue = (B*mHashValue + gTable.hashTable[in]);
-  }
+  RabinKarpHash::hashvalue_t hashTable[256];
+} gTable;
 
 
-  void RabinKarpHash::update(uint8_t in, uint8_t out)
-  {
-    mHashValue = (B*mHashValue + gTable.hashTable[in] - mBtoN * gTable.hashTable[out]);
+
+RabinKarpHash::RabinKarpHash( uint32_t len )
+  : mLen( len ), mBtoN( 1 ), mHashValue( 0 )
+{
+  for( int i = 0; i < mLen; i++ ) {
+    mBtoN *= B;
   }
+}
+
+void RabinKarpHash::reset()
+{
+  mHashValue = 0;
+}
+
+void RabinKarpHash::eat( uint8_t in )
+{
+  mHashValue = ( B * mHashValue + gTable.hashTable[in] );
+}
+
+
+void RabinKarpHash::update( uint8_t in, uint8_t out )
+{
+  mHashValue = ( B * mHashValue + gTable.hashTable[in] - mBtoN * gTable.hashTable[out] );
+}
 
 
 }

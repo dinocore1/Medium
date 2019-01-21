@@ -11,5 +11,5 @@ include_directories(src ${CMAKE_CURRENT_BINARY_DIR}/include ${FLINT_BUILDROOT}/i
 link_directories(${FLINT_BUILDROOT}/lib)
 
 add_executable(medium ${Medium_SRCS} )
-target_link_libraries(medium baseline pthread)
+target_link_libraries(medium baseline fuse pthread)
 target_compile_definitions(medium PRIVATE _FILE_OFFSET_BITS=64)

@@ -4,13 +4,14 @@
 #include <baseline/Baseline.h>
 #include <baseline/Streams.h>
 #include <baseline/CircleBuffer.h>
+#include <baseline/Hash.h>
 
 
 using namespace baseline;
 
 namespace medium {
 
-class DataSplitterOutpuStream : public OutputStream
+class DataSplitterOutputStream : public OutputStream
 {
 public:
 
@@ -18,19 +19,21 @@ public:
   {
   public:
     virtual OutputStream* createOutput() = 0;
+    virtual void onNewBlock( const HashCode& code ) = 0;
   };
 
 
-  DataSplitterOutpuStream( Callback* );
+  DataSplitterOutputStream( Callback* );
 
   void close();
   int write( uint8_t* buf, size_t offset, size_t len );
 
 private:
-  Callback* mOnNewStream;
+  Callback* mCallback;
   RabinKarpHash mRollingHash;
   baseline::CircleBuffer<uint8_t> mWindow;
   OutputStream* mOutput;
+  up<HashFunction> mStrongHash;
 };
 
 } // namespace

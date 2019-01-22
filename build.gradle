@@ -10,6 +10,11 @@ buildscript {
 
 apply plugin: com.devsmart.flintbuild.FlintPlugin
 
+/** Ubuntu dependencies:
+ * libdb++-dev    Berkley DB
+ * libfuse-dev  Fuse filesystem
+ */
+
 flint {
 
   library {

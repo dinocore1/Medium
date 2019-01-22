@@ -11,11 +11,11 @@ namespace medium {
 
 //should be 1 split on average in 1 MiB
 
-DataSplitterOutpuStream::DataSplitterOutpuStream( Callback* cb )
-  : mOnNewStream( cb ), mRollingHash( WINDOW_SIZE ), mWindow( WINDOW_SIZE ), mOutput( nullptr )
+DataSplitterOutputStream::DataSplitterOutputStream( Callback* cb )
+  : mCallback( cb ), mRollingHash( WINDOW_SIZE ), mWindow( WINDOW_SIZE ), mOutput( nullptr ), mStrongHash( createSHA1() )
 {}
 
-void DataSplitterOutpuStream::close()
+void DataSplitterOutputStream::close()
 {
   if( mOutput ) {
     mOutput->close();
@@ -23,10 +23,11 @@ void DataSplitterOutpuStream::close()
   }
 }
 
-int DataSplitterOutpuStream::write( uint8_t* buf, size_t off, size_t len )
+int DataSplitterOutputStream::write( uint8_t* buf, size_t off, size_t len )
 {
   if( mOutput == nullptr ) {
-    mOutput = mOnNewStream->createOutput();
+    mOutput = mCallback->createOutput();
+    mStrongHash->reset();
   }
   for( int i = 0; i < len; i++ ) {
     uint8_t in = buf[i];
@@ -37,11 +38,14 @@ int DataSplitterOutpuStream::write( uint8_t* buf, size_t off, size_t len )
       mRollingHash.update( in, out );
     }
     mWindow.put( in );
+    mStrongHash->update( &buf[i], 1 );
 
     RabinKarpHash::hashvalue_t rollingHash = mRollingHash.hash();
     if( rollingHash <= DIFFICULTY ) {
       mOutput->close();
-      mOutput = mOnNewStream->createOutput();
+      mCallback->onNewBlock( mStrongHash->finalize() );
+      mStrongHash->reset();
+      mOutput = mCallback->createOutput();
     }
 
     mOutput->write( buf, i, 1 );

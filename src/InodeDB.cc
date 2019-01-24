@@ -61,14 +61,14 @@ int InodeDB::init()
   INode rootNode;
   memset( rootNode.name, 0, sizeof( rootNode.name ) );
   rootNode.fileSizeFlags = 0;
-  rootNode.setFlags( S_IFDIR | 7 );
+  //rootNode.setFlags( S_IFDIR | 7 );
 
   err = mDatabase->put( NULL, &key, &data, DB_APPEND );
-  if( err != 0 || ( rid.pgno != 2 && rid.indx != 0 ) {
-  return -EINVAL;
-}
+  if( err != 0 || ( rid.pgno != 2 && rid.indx != 0 ) ) {
+    return -EINVAL;
+  }
 
-return retval;
+  return err;
 }
 
 int InodeDB::getAttr( const char* path, struct stat* st )

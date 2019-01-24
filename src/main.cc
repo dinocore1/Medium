@@ -14,11 +14,13 @@
 
 #include "DatablockDB.h"
 #include "InodeDB.h"
+#include "Filesystem.h"
 
 using namespace medium;
 
 DatablockDB* gDatablockDB;
 InodeDB* gInodeDB;
+FileSystem* gFS;
 
 static int do_getattr( const char* path, struct stat* st )
 {
@@ -55,8 +57,19 @@ int main( int argc, char* argv[] )
 {
   int err;
 
+  const char* storageFile = "fbs.fs";
+  FileBlockStorage* fbs = new FileBlockStorage();
+  uint32_t numBlocks = 8 * 1024;
+  if( ( err = FileBlockStorage::open( storageFile, *fbs, numBlocks ) ) != 0 ) {
+    LOG_ERROR("main",  "error opening fbs: %s", storageFile );
+    return err;
+  }
+
+  gFS = new FileSystem(fbs);
+  gFS->open();
+
+  /*
   DbEnv* dbenv = new DbEnv( 0 );
-  //err = dbenv->add_data_dir( "/home/paul/.medium" );
   err = dbenv->open( "/home/paul/.medium",
                      DB_CREATE | DB_INIT_LOCK | DB_INIT_LOG |
                      DB_INIT_MPOOL | DB_INIT_TXN | DB_RECOVER | DB_THREAD,
@@ -73,6 +86,7 @@ int main( int argc, char* argv[] )
     err = db->open( NULL, "inode.db", NULL, DB_HEAP, DB_CREATE, 0664 );
     gInodeDB = new InodeDB( db );
   }
+  */
 
   operations.getattr = do_getattr;
   operations.readdir = do_readdir;

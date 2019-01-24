@@ -65,9 +65,12 @@ public:
   };
 
   virtual void close() = 0;
-  virtual void info(Info& info) = 0;
+  virtual void info( Info& info ) = 0;
   virtual int readBlock( uint32_t id, uint8_t* buf, size_t offset ) = 0;
   virtual int writeBlock( uint32_t id, uint8_t* buf, size_t offset ) = 0;
+
+  virtual int read(uint64_t offset, uint8_t* buf, size_t len);
+  virtual int write(uint64_t offset, uint8_t* buf, size_t len);
 
 };
 
@@ -76,12 +79,14 @@ class FileBlockStorage : public BlockStorage
 {
 public:
 
-  static int open( const char* path, FileBlockStorage&, uint32_t numBlocks );
+  static int open( const char* path, FileBlockStorage&, uint32_t& numBlocks );
 
   void close() override;
-  void info(Info& info);
+  void info( Info& info );
   int readBlock( uint32_t id, uint8_t* buf, size_t offset ) override;
   int writeBlock( uint32_t id, uint8_t* buf, size_t offset ) override;
+
+  
 
 private:
   FILE* mFD;
@@ -93,14 +98,20 @@ class MemBlockStorage : public BlockStorage
 public:
 
   void close() override;
-  void info(Info& info);
+  void info( Info& info );
   int readBlock( uint32_t id, uint8_t* buf, size_t offset ) override;
   int writeBlock( uint32_t id, uint8_t* buf, size_t offset ) override;
 };
 
 class FileSystem
 {
+public:
+  FileSystem( BlockStorage* );
+  void open();
+  void close();
 
+protected:
+  BlockStorage* mBlockStorage;
 };
 
 

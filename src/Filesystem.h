@@ -18,7 +18,7 @@ struct SuperBlock {
   uint8_t block_k_size;
   uint16_t inodes_per_group;
   uint16_t blocks_per_group;
-  uint16_t num_groups;
+  uint32_t num_groups;
 };
 
 
@@ -37,6 +37,11 @@ struct DirectoryEntry {
   uint16_t rec_len;
   uint8_t nameLen;
   uint8_t file_type;
+};
+
+struct BlockGroup {
+  uint16_t numBlocks;
+  uint16_t numINodes;
 };
 
 #define IN_TYPE_MASK    0xF
@@ -85,8 +90,8 @@ public:
   void info( Info& info );
   int readBlock( uint32_t id, uint8_t* buf, size_t offset ) override;
   int writeBlock( uint32_t id, uint8_t* buf, size_t offset ) override;
-
-
+  int read( uint64_t offset, uint8_t* buf, size_t len ) override;
+  int write( uint64_t offset, uint8_t* buf, size_t len ) override;
 
 private:
   FILE* mFD;
@@ -109,6 +114,8 @@ public:
   FileSystem( BlockStorage* );
   void open();
   void close();
+
+  int format();
 
 protected:
   BlockStorage* mBlockStorage;

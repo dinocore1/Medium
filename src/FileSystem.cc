@@ -91,6 +91,7 @@ int FileBlockStorage::open( const char* path, FileBlockStorage& fbs, uint32_t& n
       return -1;
     }
     numBlocks = header.numBlocks;
+    fbs.mNumBlocks = header.numBlocks;
 
   } else {
     //new file creation and format
@@ -114,6 +115,7 @@ int FileBlockStorage::open( const char* path, FileBlockStorage& fbs, uint32_t& n
     }
 
     free( buf );
+    fbs.mNumBlocks = numBlocks;
 
   }
 
@@ -156,11 +158,67 @@ int FileBlockStorage::writeBlock( uint32_t id, uint8_t* buf, size_t offset )
   return 0;
 }
 
+int FileBlockStorage::read( uint64_t offset, uint8_t* buf, size_t len )
+{
+  long f_offset = sizeof( FileBlockStorageHeader ) + offset;
+  fseek( mFD, f_offset, SEEK_SET );
+  fread( buf, 1, len, mFD );
+}
+
+int FileBlockStorage::write( uint64_t offset, uint8_t* buf, size_t len )
+{
+  long f_offset = sizeof( FileBlockStorageHeader ) + offset;
+  fseek( mFD, f_offset, SEEK_SET );
+  fwrite( buf, 1, len, mFD );
+}
+
 FileSystem::FileSystem( BlockStorage* bs )
   : mBlockStorage( bs )
 {}
 
 void FileSystem::open()
 {}
+
+#define ROUND_UP(x, y) (((x) + (y)-1)) / (y)
+
+int FileSystem::format()
+{
+  BlockStorage::Info info;
+  mBlockStorage->info( info );
+  const uint64_t storageSize = info.blocksize_kb * 1024 * info.numBlocks;
+
+  SuperBlock sb;
+  sb.block_k_size = info.blocksize_kb;
+  const uint32_t inodes_per_block = ( sb.block_k_size * 1024 ) / sizeof( Inode );
+  sb.blocks_per_group = 8 * 1024;
+  sb.inodes_per_group = inodes_per_block * ( 0.2 * sb.blocks_per_group );
+
+  const uint32_t group_size = sb.blocks_per_group * sb.block_k_size * 1024;
+  sb.num_groups = ROUND_UP( storageSize - sb.block_k_size * 1024, group_size );
+
+  uint8_t* blockBuf = ( uint8_t* ) malloc( sb.block_k_size * 1024 );
+
+  //write superblock
+  memcpy( blockBuf, &sb, sizeof( sb ) );
+  mBlockStorage->writeBlock( 0, blockBuf, 0 );
+
+  for( uint32_t i = 0; i < sb.num_groups; i++ ) {
+    BlockGroup bg;
+    bg.numBlocks = sb.blocks_per_group;
+    bg.numINodes = sb.inodes_per_group;
+    memcpy( blockBuf, &bg, sizeof( bg ) );
+    mBlockStorage->writeBlock( i * sb.blocks_per_group + 1, blockBuf, 0 );
+
+    //write inode bitmap
+    memset( blockBuf, 0, sb.block_k_size * 1024 );
+    mBlockStorage->writeBlock( i * sb.blocks_per_group + 2, blockBuf, 0 );
+
+    //write bitmap for blocks
+    memset( blockBuf, 0, sb.block_k_size * 1024 );
+    mBlockStorage->writeBlock( i * sb.blocks_per_group + 3, blockBuf, 0 );
+  }
+
+
+}
 
 } // namespace

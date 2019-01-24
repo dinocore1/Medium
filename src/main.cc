@@ -61,11 +61,11 @@ int main( int argc, char* argv[] )
   FileBlockStorage* fbs = new FileBlockStorage();
   uint32_t numBlocks = 8 * 1024;
   if( ( err = FileBlockStorage::open( storageFile, *fbs, numBlocks ) ) != 0 ) {
-    LOG_ERROR("main",  "error opening fbs: %s", storageFile );
+    LOG_ERROR( "main",  "error opening fbs: %s", storageFile );
     return err;
   }
 
-  gFS = new FileSystem(fbs);
+  gFS = new FileSystem( fbs );
   gFS->open();
 
   /*

@@ -69,8 +69,8 @@ public:
   virtual int readBlock( uint32_t id, uint8_t* buf, size_t offset ) = 0;
   virtual int writeBlock( uint32_t id, uint8_t* buf, size_t offset ) = 0;
 
-  virtual int read(uint64_t offset, uint8_t* buf, size_t len);
-  virtual int write(uint64_t offset, uint8_t* buf, size_t len);
+  virtual int read( uint64_t offset, uint8_t* buf, size_t len );
+  virtual int write( uint64_t offset, uint8_t* buf, size_t len );
 
 };
 
@@ -86,7 +86,7 @@ public:
   int readBlock( uint32_t id, uint8_t* buf, size_t offset ) override;
   int writeBlock( uint32_t id, uint8_t* buf, size_t offset ) override;
 
-  
+
 
 private:
   FILE* mFD;

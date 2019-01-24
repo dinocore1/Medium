@@ -1,4 +1,8 @@
+
+#include <db_cxx.h>
+
 #include <baseline/Baseline.h>
+#include <baseline/Mutex.h>
 
 #include "Filesystem.h"
 

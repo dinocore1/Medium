@@ -3,10 +3,26 @@
 
 #include <cstdio>
 
+#include <baseline/Baseline.h>
+#include <baseline/Hash.h>
+
+#include <db_cxx.h>
+
 namespace medium {
 
 #define MAX_FILENAME_LEN 63
 #define BLOCK_SIZE 4096
+
+struct INode {
+  char name[MAX_FILENAME_LEN];
+  uint64_t flags;
+  DB_HEAP_RID ptrs[16];
+
+  void setSize(uint64_t);
+  uint64_t getSize();
+  void setFlags(uint8_t);
+  uint8_t getFlags();
+};
 
 struct SuperBlock {
   uint32_t numINodes;
@@ -25,16 +41,9 @@ public:
 
 };
 
-struct INode {
-  uint64_t fileSizeFlags;
-  char name[MAX_FILENAME_LEN + 1];
-  uint32_t blockPtrs[16];
-
-
-};
 
 struct DataBlock {
-  //StrongHash_t strongHash;
+  baseline::HashCode strongHash;
   uint32_t size;
   uint16_t flags;
 };

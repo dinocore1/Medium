@@ -5,7 +5,15 @@ set (CMAKE_CXX_STANDARD 11)
 
 project(medium)
 
-file(GLOB Medium_SRCS src/*.cc)
+#file(GLOB Medium_SRCS src/*.cc)
+set(Medium_SRCS
+    src/DatablockDB.cc
+    src/DataSplitterOutputStream.cc
+    src/FileSystem.cc
+    src/InodeDB.cc
+    src/main.cc
+    src/RabinKarpHash.cc
+)
 
 include_directories(src ${CMAKE_CURRENT_BINARY_DIR}/include ${FLINT_BUILDROOT}/include)
 link_directories(${FLINT_BUILDROOT}/lib)

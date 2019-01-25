@@ -5,6 +5,7 @@
 
 #include <baseline/Baseline.h>
 #include <baseline/Hash.h>
+#include <baseline/Mutex.h>
 
 #include <db_cxx.h>
 
@@ -13,6 +14,7 @@ namespace medium {
 typedef uint32_t blockid_t;
 
 struct SuperBlock {
+  uint8_t magic[3];
   uint32_t num_inodes;
   uint32_t num_blocks;
   uint8_t block_k_size;
@@ -112,13 +114,20 @@ class FileSystem
 {
 public:
   FileSystem( BlockStorage* );
-  void open();
-  void close();
-
+  int open();
+  int close();
   int format();
 
 protected:
+
+  int allocInode( uint32_t blockGroup, blockid_t& inodeId );
+  int allocBlock( uint32_t blockGroup, blockid_t& blockId );
+  int writeInode( const Inode&, blockid_t inodeId );
+
   BlockStorage* mBlockStorage;
+  SuperBlock mSuperblock;
+  baseline::Mutex mWriteLock;
+  uint8_t* mBlockBuffer;
 };
 
 

@@ -66,8 +66,9 @@ int main( int argc, char* argv[] )
   }
 
   gFS = new FileSystem( fbs );
-  gFS->open();
-  gFS->format();
+  if( gFS->open() != 0 ) {
+    gFS->format();
+  }
 
   /*
   DbEnv* dbenv = new DbEnv( 0 );

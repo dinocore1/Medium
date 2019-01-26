@@ -12,9 +12,28 @@
 
 #include <baseline/Baseline.h>
 
+#include "Path.h"
+
+using medium::Path;
 
 struct struct_ext2_filsys filsys;
 ext2_filsys fs;
+
+int do_readinode (ext2_filsys e2fs, const char *path, ext2_ino_t *ino, struct ext2_inode *inode)
+{
+	errcode_t rc;
+	rc = ext2fs_namei(e2fs, EXT2_ROOT_INO, EXT2_ROOT_INO, path, ino);
+	if (rc) {
+		LOG_WARN("", "ext2fs_namei(e2fs, EXT2_ROOT_INO, EXT2_ROOT_INO, %s, ino); failed", path);
+		return -ENOENT;
+	}
+	rc = ext2fs_read_inode(e2fs, *ino, inode);
+	if (rc) {
+		LOG_WARN("", "ext2fs_read_inode(e2fs, *ino, inode); failed");
+		return -EIO;
+	}
+	return 0;
+}
 
 static int path_check(const char* path, bool* isend)
 {
@@ -87,6 +106,10 @@ static int do_getattr( const char* path, struct stat* st )
   err = ext2fs_read_inode(fs, ino, &inode);
   
   st->st_mode = inode.i_mode;
+  st->st_nlink = 1;
+  st->st_uid = getuid();
+  st->st_gid = getgid();
+  st->st_size = inode.i_size;
 
 
   return 0;
@@ -144,6 +167,26 @@ static int do_read( const char* path, char* buffer, size_t size, off_t offset, s
   LOG_INFO( "", "do_read(%s)", path );
 }
 
+static int do_mkdir(const char* path, mode_t mode)
+{
+  int retval;
+  ext2_ino_t ino;
+  LOG_INFO( "", "do_mkdir(%s, 0x%x)", path, mode);
+
+  Path newDir = Path::create(path);
+  Path parent = newDir.parent();
+
+  retval = parent.lookup_ino(fs, ino);
+  if(retval != 0) {
+    return retval;
+  }
+
+  retval = ext2fs_mkdir(fs, ino, 0, newDir.name());
+  
+
+  return retval;
+}
+
 static struct fuse_operations operations;
 
 
@@ -162,6 +205,7 @@ int main( int argc, char* argv[] )
   operations.getattr = do_getattr;
   operations.readdir = do_readdir;
   operations.read = do_read;
+  operations.mkdir = do_mkdir;
 
   return fuse_main( argc, argv, &operations, NULL );
 

@@ -9,6 +9,7 @@ project(medium)
 set(Medium_SRCS
     src/DataSplitterOutputStream.cc
     src/main.cc
+    src/Path.cc
     src/RabinKarpHash.cc
 )
 

@@ -3,8 +3,15 @@
 ## Resources ##
 
 https://github.com/gkostka/lwext4
+http://www.giis.co.in/libext2fs.pdf
+http://gauss.ececs.uc.edu/Courses/c4029/labs/lab11.html
+https://github.com/libfuse/libfuse/blob/master/example/passthrough.c
 
-
+create ext2 image with:
+```
+# dd if=/dev/zero of=file.fs bs=1M count=128
+# mkfs.ex2 file.fs
+```
 
 ## File Storage ##
 

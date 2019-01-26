@@ -1,5 +1,10 @@
 
 
+## Resources ##
+
+https://github.com/gkostka/lwext4
+
+
 
 ## File Storage ##
 
@@ -8,3 +13,4 @@ Every file is determinastly split by rolling hash. Every resulting block SHA1 ha
 ## File System ##
 
 Every file is represented with an inode which contains the filename, filesize, permissions, and list of SHA1 hashes that constitute the file's data. 
+

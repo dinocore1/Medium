@@ -12,7 +12,8 @@ apply plugin: com.devsmart.flintbuild.FlintPlugin
 
 /** Ubuntu dependencies:
  * libdb++-dev    Berkley DB
- * libfuse-dev  Fuse filesystem
+ * libfuse-dev    Fuse filesystem
+ * libext2fs-dev  ext2
  */
 
 flint {

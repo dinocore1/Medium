@@ -15,18 +15,23 @@ typedef uint32_t blockid_t;
 
 struct SuperBlock {
   uint8_t magic[3];
-  uint32_t num_inodes;
-  uint32_t num_blocks;
   uint8_t block_k_size;
-  uint16_t inodes_per_group;
+  uint32_t num_blocks;
+  uint32_t num_inodes;
+
+  //groups descriptor
   uint16_t blocks_per_group;
-  uint32_t num_groups;
+  uint16_t inodes_per_group;
+  uint16_t data_blocks_per_group;
+  uint16_t inodes_per_block;
+  
+  blockid_t root_dir_blockid;
 };
 
 
-#define DIR_READ_MASK   (1 << 0)
-#define DIR_WRITE_MASK  (1 << 1)
-#define DIR_EXE_MASK    (1 << 2)
+#define DIR_READ   (1 << 0)
+#define DIR_WRITE  (1 << 1)
+#define DIR_EXE    (1 << 2)
 
 #define DIR_TYPE_MASK 0x18
 #define DIR_TYPE_DIR  0x0
@@ -118,8 +123,11 @@ public:
   int close();
   int format();
 
+  SuperBlock& superblock();
+
 protected:
 
+  int allocFat(blockid_t fatBlockId, const uint16_t numItems, blockid_t& blockId);
   int allocInode( uint32_t blockGroup, blockid_t& inodeId );
   int allocBlock( uint32_t blockGroup, blockid_t& blockId );
   int writeInode( const Inode&, blockid_t inodeId );
@@ -127,7 +135,6 @@ protected:
   BlockStorage* mBlockStorage;
   SuperBlock mSuperblock;
   baseline::Mutex mWriteLock;
-  uint8_t* mBlockBuffer;
 };
 
 

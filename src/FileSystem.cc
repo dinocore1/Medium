@@ -3,10 +3,12 @@
 
 #include <baseline/Baseline.h>
 #include <baseline/Mutex.h>
+#include <baseline/UniquePointer.h>
 
 #include "Filesystem.h"
 
-using baseline::Mutex;
+
+using namespace baseline;
 
 namespace medium {
 
@@ -201,17 +203,11 @@ int FileSystem::open()
     return -1;
   }
 
-  mBlockBuffer = ( uint8_t* ) malloc( mSuperblock.block_k_size * 1024 );
-
   return 0;
 }
 
 int FileSystem::close()
 {
-  if( mBlockBuffer != nullptr ) {
-    free( mBlockBuffer );
-    mBlockBuffer = nullptr;
-  }
   return 0;
 }
 
@@ -225,10 +221,13 @@ int FileSystem::format()
 
   memcpy( mSuperblock.magic, FS_Magic, sizeof( uint8_t ) * 3 );
   mSuperblock.block_k_size = info.blocksize_kb;
+
+  up<uint8_t[]> blockBuffer(new uint8_t[mSuperblock.block_k_size * 1024]);
+  
   const uint32_t inodes_per_block = ( mSuperblock.block_k_size * 1024 ) / sizeof( Inode );
   mSuperblock.blocks_per_group = 8 * 1024;
   uint32_t inode_blocks_per_group = mSuperblock.blocks_per_group / 10;
-  uint32_t data_blocks_per_group = mSuperblock.blocks_per_group - inode_blocks_per_group - 3;
+  mSuperblock.data_blocks_per_group = mSuperblock.blocks_per_group - inode_blocks_per_group - 3;
   mSuperblock.inodes_per_group = inode_blocks_per_group * inodes_per_block;
 
   mSuperblock.num_groups = info.numBlocks / mSuperblock.blocks_per_group;
@@ -244,42 +243,51 @@ int FileSystem::format()
   mSuperblock.num_blocks = ( mSuperblock.num_groups * data_blocks_per_group ) + ( leftover_data_blocks );
   mSuperblock.num_inodes = ( mSuperblock.num_groups * inode_blocks_per_group ) + ( leftover_inode_blocks * inodes_per_block );
 
-  mBlockBuffer = ( uint8_t* ) malloc( mSuperblock.block_k_size * 1024 );
-
-  //write superblock
-  memcpy( mBlockBuffer, &mSuperblock, sizeof( mSuperblock ) );
-  mBlockStorage->writeBlock( 0, mBlockBuffer, 0 );
+  
 
   for( uint32_t i = 0; i < ROUND_UP( info.numBlocks, mSuperblock.blocks_per_group ); i++ ) {
     BlockGroup bg;
     bg.numBlocks = mSuperblock.blocks_per_group;
     bg.numINodes = mSuperblock.inodes_per_group;
-    memcpy( mBlockBuffer, &bg, sizeof( bg ) );
-    mBlockStorage->writeBlock( i * mSuperblock.blocks_per_group + 1, mBlockBuffer, 0 );
+    memcpy( blockBuffer.get(), &bg, sizeof( bg ) );
+    mBlockStorage->writeBlock( i * mSuperblock.blocks_per_group + 1, blockBuffer.get(), 0 );
 
     //write inode bitmap
-    memset( mBlockBuffer, 0, mSuperblock.block_k_size * 1024 );
-    mBlockStorage->writeBlock( i * mSuperblock.blocks_per_group + 2, mBlockBuffer, 0 );
+    memset( blockBuffer.get(), 0, mSuperblock.block_k_size * 1024 );
+    mBlockStorage->writeBlock( i * mSuperblock.blocks_per_group + 2, blockBuffer.get(), 0 );
 
     //write bitmap for blocks
-    memset( mBlockBuffer, 0, mSuperblock.block_k_size * 1024 );
-    mBlockStorage->writeBlock( i * mSuperblock.blocks_per_group + 3, mBlockBuffer, 0 );
+    memset( blockBuffer.get(), 0, mSuperblock.block_k_size * 1024 );
+    mBlockStorage->writeBlock( i * mSuperblock.blocks_per_group + 3, blockBuffer.get(), 0 );
   }
 
   //write root dir entry
-  //alloc first inode should alway be zero
-  memset( mBlockBuffer, 0, mSuperblock.block_k_size * 1024 );
-  mBlockBuffer[0] = 0x80;
-  mBlockStorage->writeBlock( 2, mBlockBuffer, 0 );
+  DirectoryEntry rootDir;
+  allocBlock(0, mSuperblock.root_dir_blockid);
+  allocInode(0, rootDir.inode);
+  rootDir.rec_len = 0;
+  rootDir.nameLen = 1;
+  rootDir.file_type = DIR_TYPE_DIR | DIR_READ | DIR_EXE;
+  memcpy(blockBuffer.get(), &rootDir, sizeof(rootDir));
+  mBlockStorage->writeBlock(mSuperblock.root_dir_blockid, blockBuffer.get(), 0);
 
   Inode inode;
-  inode.size = 0;
+  inode.size = 1;
   inode.file_type = IN_TYPE_DIR;
   inode.links = 2;
   memset( inode.blocks, 0, sizeof( blockid_t ) * 15 );
-  allocBlock( 0, inode.blocks[0] );
-  writeInode( inode, 0 );
+  memcpy(blockBuffer.get(), &inode, sizeof(inode));
+  mBlockStorage->writeBlock(rootDir.inode, blockBuffer.get(), 0);
 
+  //write superblock
+  memcpy( blockBuffer.get(), &mSuperblock, sizeof( mSuperblock ) );
+  mBlockStorage->writeBlock( 0, blockBuffer.get(), 0 );
+
+}
+
+SuperBlock& FileSystem::superblock()
+{
+  return mSuperblock;
 }
 
 static
@@ -299,43 +307,21 @@ int findFirstFree( uint8_t* fat, const uint16_t numItems )
   return -1;
 }
 
-int FileSystem::allocInode( uint32_t blockGroup, blockid_t& inodeId )
-{
-  int ret = -1;
-  Mutex::Autolock lock( mWriteLock );
-  uint32_t fatBlockId = ( blockGroup * mSuperblock.inodes_per_group ) + 2;
-  mBlockStorage->readBlock( fatBlockId, mBlockBuffer, 0 );
 
-  int offset = findFirstFree( mBlockBuffer, mSuperblock.inodes_per_group );
+int FileSystem::allocFat(blockid_t fatBlockId, const uint16_t numItems, blockid_t& blockId)
+{
+  up<uint8_t[]> blockBuffer(new uint8_t[mSuperblock.block_k_size * 1024]);
+  uint8_t* buffer = blockBuffer.get();
+
+  mBlockStorage->readBlock( fatBlockId, buffer, 0 );
+  int offset = findFirstFree( buffer, numItems );
   if( offset >= 0 ) {
     //mark used
-    uint8_t value = mBlockBuffer[offset / 8];
+    uint8_t value = buffer[offset / 8];
     uint16_t bit = 1 << ( offset % 8 );
     value |= bit;
-    mBlockBuffer[offset / 8] = value;
-    mBlockStorage->writeBlock( fatBlockId, mBlockBuffer, 0 );
-    inodeId = fatBlockId + offset;
-    return 0;
-  }
-
-  return -1;
-}
-
-int FileSystem::allocBlock( uint32_t blockGroup, blockid_t& blockId )
-{
-  int ret = -1;
-  Mutex::Autolock lock( mWriteLock );
-  uint32_t fatBlockId = ( blockGroup * mSuperblock.blocks_per_group ) + 3;
-  mBlockStorage->readBlock( fatBlockId, mBlockBuffer, 0 );
-
-  int offset = findFirstFree( mBlockBuffer, mSuperblock.blocks_per_group );
-  if( offset >= 0 ) {
-    //mark used
-    uint8_t value = mBlockBuffer[offset / 8];
-    uint16_t bit = 1 << ( offset % 8 );
-    value |= bit;
-    mBlockBuffer[offset / 8] = value;
-    mBlockStorage->writeBlock( fatBlockId, mBlockBuffer, 0 );
+    buffer[offset / 8] = value;
+    mBlockStorage->writeBlock( fatBlockId, buffer, 0 );
     blockId = fatBlockId + offset;
     return 0;
   }
@@ -343,8 +329,48 @@ int FileSystem::allocBlock( uint32_t blockGroup, blockid_t& blockId )
   return -1;
 }
 
+static inline
+uint32_t numItemsInBlock(uint32_t block, uint32_t numPerGroup, uint32_t total)
+{
+  if(block * numPerGroup <= total) {
+    return numPerGroup;
+  } else {
+    return total % (block * numPerGroup);
+  }
+
+}
+
+int FileSystem::allocInode( uint32_t blockGroup, blockid_t& inodeId )
+{
+  int ret = -1;
+  Mutex::Autolock lock( mWriteLock );
+
+  uint32_t numInodes = numItemsInBlock(blockGroup, mSuperblock.inodes_per_group, mSuperblock.num_inodes);
+  uint32_t fatBlockId = ( blockGroup * mSuperblock.inodes_per_group ) + 2;
+
+  ret = allocFat(fatBlockId, numInodes, inodeId);
+
+  return ret;
+}
+
+int FileSystem::allocBlock( uint32_t blockGroup, blockid_t& blockId )
+{
+
+int ret = -1;
+  Mutex::Autolock lock( mWriteLock );
+
+  uint32_t numInodes = numItemsInBlock(blockGroup, mSuperblock.blocks_per_group, mSuperblock.num_blocks);
+  uint32_t fatBlockId = ( blockGroup * mSuperblock.blocks_per_group ) + 3;
+
+  ret = allocFat(fatBlockId, numInodes, blockId);
+
+  return ret;
+}
+
 int FileSystem::writeInode( const Inode& inode, blockid_t id )
 {
+  up<uint8_t[]> blockBuffer(new uint8_t[mSuperblock.block_k_size * 1024]);
+  uint8_t* buffer = blockBuffer.get();
   const uint32_t inodes_per_block = ( mSuperblock.block_k_size * 1024 ) / sizeof( Inode );
 
   Mutex::Autolock lock( mWriteLock );
@@ -353,9 +379,9 @@ int FileSystem::writeInode( const Inode& inode, blockid_t id )
   uint32_t blockId = ( blockGroup * mSuperblock.blocks_per_group ) + 4 + ( id % inodes_per_block );
   uint32_t tableIdx = id % mSuperblock.inodes_per_group;
 
-  mBlockStorage->readBlock( blockId, mBlockBuffer, 0 );
-  memcpy( &mBlockBuffer[sizeof( Inode ) * tableIdx], &inode, sizeof( Inode ) );
-  mBlockStorage->writeBlock( blockId, mBlockBuffer, 0 );
+  mBlockStorage->readBlock( blockId, buffer, 0 );
+  memcpy( &buffer[sizeof( Inode ) * tableIdx], &inode, sizeof( Inode ) );
+  mBlockStorage->writeBlock( blockId, buffer, 0 );
 
 }
 

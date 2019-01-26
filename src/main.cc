@@ -38,9 +38,12 @@ static int get_inode(const char* path, ext2_ino_t& ino)
 {
   bool isend;
   int len, err;
-  ext2_ino_t inode;
+  ext2_ino_t dir;
 
-  if(strcmp(path, "/") == 0){
+  dir = fs->super->s_first_ino;
+
+  if(strcmp(path, "/") == 0) {
+    ino = dir;
     return 0;
   }
   
@@ -50,19 +53,20 @@ static int get_inode(const char* path, ext2_ino_t& ino)
 
   path++;
 
-  inode = fs->super->s_first_ino;
-
   while(true) {
     len = path_check(path, &isend);
-    err = ext2fs_lookup(fs, inode, path, len, NULL, &inode);
-    if(err == 0 && isend) {
-      ino = inode;
-      return 0;
-    }
+    err = ext2fs_lookup(fs, dir, path, len, NULL, &ino);
     if(err != 0) {
-      //file not found
       return -1;
     }
+
+    if(isend) {
+      return 0;
+    }
+
+    path += len;
+    dir = ino;
+    
   }
 
 }
@@ -82,6 +86,7 @@ static int do_getattr( const char* path, struct stat* st )
 
   err = ext2fs_read_inode(fs, ino, &inode);
   
+  st->st_mode = inode.i_mode;
 
 
   return 0;
@@ -101,7 +106,15 @@ static int add_dir_entry(struct ext2_dir_entry *dirent,
 {
   dir_entry_t* entry = (dir_entry_t*) priv_data;
 
-  entry->filler(entry->buffer, dirent->name, NULL, 0);
+  if(entry->offset) {
+    entry->offset--;
+    return 0;
+  }
+
+  if(entry->filler(entry->buffer, dirent->name, NULL, 0)){
+    //if the fuse buffer is full, abort iterating
+    return DIRENT_ABORT;
+  }
 
   return 0;
 }

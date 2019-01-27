@@ -31,12 +31,6 @@ static int do_readdir( const char* path, void* buffer, fuse_fill_dir_t filler, o
   return mLiveFS.op_readdir( path, buffer, filler, offset, fi );
 }
 
-static int do_read( const char* path, char* buffer, size_t size, off_t offset, struct fuse_file_info* fi )
-{
-  LOG_INFO( "", "path = %s, size = %d", path, size );
-  return -1;
-}
-
 static int do_mkdir( const char* path, mode_t mode )
 {
   return mLiveFS.op_mkdir( path, mode );
@@ -57,6 +51,26 @@ static int do_create( const char* path, mode_t mode, struct fuse_file_info* fi )
   return mLiveFS.op_create( path, mode, fi );
 }
 
+static int do_read( const char* path, char* buffer, size_t size, off_t offset, struct fuse_file_info* fi )
+{
+  return mLiveFS.op_read( path, buffer, size, offset, fi );
+}
+
+int do_write( const char* path, const char* buf, size_t size, off_t offset, struct fuse_file_info* fi )
+{
+  return mLiveFS.op_write( path, buf, size, offset, fi );
+}
+
+int do_truncate( const char* path, off_t length )
+{
+  return mLiveFS.op_truncate( path, length );
+}
+
+int do_ftruncate( const char* path, off_t length, struct fuse_file_info* fi )
+{
+  return mLiveFS.op_ftruncate( path, length, fi );
+}
+
 static struct fuse_operations operations;
 
 
@@ -73,11 +87,14 @@ int main( int argc, char* argv[] )
 
   operations.getattr = do_getattr;
   operations.readdir = do_readdir;
-  operations.read = do_read;
   operations.mkdir = do_mkdir;
   operations.open = do_open;
   operations.release = do_release;
   operations.create = do_create;
+  operations.read = do_read;
+  operations.write = do_write;
+  operations.truncate = do_truncate;
+  operations.ftruncate = do_ftruncate;
 
   return fuse_main( argc, argv, &operations, NULL );
 

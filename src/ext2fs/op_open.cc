@@ -27,9 +27,9 @@ ext2_file_t Ext2FS::do_open( ext2_filsys e2fs, const char* path, int flags )
   }
 
   int ext2_flags = 0;
-  if( flags & O_CREAT ) {
-    ext2_flags |= EXT2_FILE_CREATE;
-  }
+  //if( flags & O_CREAT ) {
+  //  ext2_flags |= EXT2_FILE_CREATE;
+  //}
 
   if( flags & O_WRONLY || flags & O_RDWR ) {
     ext2_flags |= EXT2_FILE_WRITE;

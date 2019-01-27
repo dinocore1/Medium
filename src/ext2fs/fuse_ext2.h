@@ -17,6 +17,7 @@
 
 namespace medium {
 
+#define EXT2FS_FILE(efile) ((ext2_file_t) (unsigned long) (efile))
 
 class Ext2FS
 {
@@ -30,6 +31,10 @@ public:
   int op_open( const char* path, struct fuse_file_info* fi );
   int op_release( const char* path, struct fuse_file_info* fi );
   int op_create( const char* path, mode_t mode, struct fuse_file_info* fi );
+  int op_read( const char* path, char* buf, size_t size, off_t offset, struct fuse_file_info* fi );
+  int op_write( const char* path, const char* buf, size_t size, off_t offset, struct fuse_file_info* fi );
+  int op_truncate( const char* path, off_t length );
+  int op_ftruncate( const char* path, off_t length, struct fuse_file_info* fi );
 
 private:
   static int do_check( const char* path );
@@ -45,6 +50,10 @@ private:
   static int do_release( ext2_file_t efile );
 
   static int do_create( ext2_filsys e2fs, const char* path, mode_t mode, dev_t dev, const char* fastsymlink );
+
+  static size_t do_write( ext2_file_t efile, const char* buf, size_t size, off_t offset );
+
+  static int do_truncate( ext2_filsys e2fs, ext2_file_t efile, const char* path, off_t length );
 
   static const char* LOG_TAG;
   struct struct_ext2_filsys filsys;

@@ -26,6 +26,8 @@ public:
     int op_getattr (const char *path, struct stat *stbuf);
     int op_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fi);
     int op_mkdir (const char *path, mode_t mode);
+    int op_open(const char *path, struct fuse_file_info *fi);
+    int op_release (const char *path, struct fuse_file_info *fi);
 
 private:
     static int do_check (const char *path);
@@ -36,6 +38,9 @@ private:
     static int do_writeinode (ext2_filsys e2fs, ext2_ino_t ino, struct ext2_inode *inode);
 
     static void do_fillstatbuf(ext2_filsys e2fs, ext2_ino_t ino, struct ext2_inode *inode, struct stat *st);
+
+    static ext2_file_t do_open (ext2_filsys e2fs, const char *path, int flags);
+    static int do_release(ext2_file_t efile);
 
     static const char* LOG_TAG;
     struct struct_ext2_filsys filsys;

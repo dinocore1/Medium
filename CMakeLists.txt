@@ -19,6 +19,7 @@ set(Medium_SRCS
     src/ext2fs/op_readdir.cc
     src/ext2fs/op_release.cc
     src/ext2fs/op_truncate.cc
+    src/ext2fs/op_unlink.cc
     src/ext2fs/op_write.cc
     src/DataSplitterOutputStream.cc
     src/main.cc

@@ -71,6 +71,11 @@ int do_ftruncate( const char* path, off_t length, struct fuse_file_info* fi )
   return mLiveFS.op_ftruncate( path, length, fi );
 }
 
+int do_unlink( const char* path )
+{
+  return mLiveFS.op_unlink( path );
+}
+
 static struct fuse_operations operations;
 
 
@@ -95,6 +100,7 @@ int main( int argc, char* argv[] )
   operations.write = do_write;
   operations.truncate = do_truncate;
   operations.ftruncate = do_ftruncate;
+  operations.unlink = do_unlink;
 
   return fuse_main( argc, argv, &operations, NULL );
 

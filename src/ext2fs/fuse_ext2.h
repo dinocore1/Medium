@@ -35,6 +35,7 @@ public:
   int op_write( const char* path, const char* buf, size_t size, off_t offset, struct fuse_file_info* fi );
   int op_truncate( const char* path, off_t length );
   int op_ftruncate( const char* path, off_t length, struct fuse_file_info* fi );
+  int op_unlink( const char* path );
 
 private:
   static int do_check( const char* path );

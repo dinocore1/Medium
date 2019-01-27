@@ -40,10 +40,7 @@ public:
   int op_unlink( const char* path );
   int op_rmdir( const char* path );
 
-private:
-
-#define translate_error(fs, ino, err) __translate_error((fs), (err), (ino), \
-    __FILE__, __LINE__)
+protected:
 
   static int __translate_error( ext2_filsys fs, errcode_t err, ext2_ino_t ino,
                                 const char* file, int line );

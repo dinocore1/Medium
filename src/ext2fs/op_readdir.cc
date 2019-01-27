@@ -1,4 +1,4 @@
-#include "ext2fs/fuse_ext2.h"
+#include "ext2fs/fuse_ext2_int.h"
 
 #include <fuse.h>
 

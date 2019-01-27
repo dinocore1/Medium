@@ -43,7 +43,7 @@ int Ext2FS::op_readdir (const char *path, void *buf, fuse_fill_dir_t filler, off
     };
 
 	
-	LOG_DEBUG(LOG_TAG, "op_readdir(%s)", path);
+	LOG_DEBUG(LOG_TAG, "op_readdir(%s, %d)", path, offset);
 	
 	rt = do_readinode(e2fs, path, &ino, &inode);
 	if (rt) {

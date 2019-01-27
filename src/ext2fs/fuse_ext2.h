@@ -21,8 +21,10 @@ namespace medium {
 class Ext2FS {
 public:
 
-    int op_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fi);
+    int open(const char* filepath, int flags);
+
     int op_getattr (const char *path, struct stat *stbuf);
+    int op_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fi);
     int op_mkdir (const char *path, mode_t mode);
 
 private:
@@ -36,6 +38,7 @@ private:
     static void do_fillstatbuf(ext2_filsys e2fs, ext2_ino_t ino, struct ext2_inode *inode, struct stat *st);
 
     static const char* LOG_TAG;
+    struct struct_ext2_filsys filsys;
     ext2_filsys e2fs;
 };
 

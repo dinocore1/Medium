@@ -9,23 +9,24 @@
 
 namespace medium {
 
-class Path {
+class Path
+{
 public:
-    static Path create(const char*);
-    Path();
-    Path(const Path&);
-    ~Path();
+  static Path create( const char* );
+  Path();
+  Path( const Path& );
+  ~Path();
 
-    Path parent();
-    const char* name();
-    const char* getPart(int idx);
+  Path parent();
+  const char* name();
+  const char* getPart( int idx );
 
-    int lookup_ino(ext2_filsys fs, ext2_ino_t& ino);
+  int lookup_ino( ext2_filsys fs, ext2_ino_t& ino );
 
 private:
-    void* mBuf;
-    baseline::Vector<int> mStartIdx;
-    int mIdx;
+  void* mBuf;
+  baseline::Vector<int> mStartIdx;
+  int mIdx;
 
 };
 

@@ -2,9 +2,9 @@
 
 namespace medium {
 
-struct rmdir_st {
-  ext2_ino_t parent;
-  int empty;
+struct rd_struct {
+  ext2_ino_t	parent;
+  int		empty;
 };
 
 static int rmdir_proc( ext2_ino_t dir EXT2FS_ATTR( ( unused ) ),
@@ -14,129 +14,95 @@ static int rmdir_proc( ext2_ino_t dir EXT2FS_ATTR( ( unused ) ),
                        int blocksize EXT2FS_ATTR( ( unused ) ),
                        char* buf EXT2FS_ATTR( ( unused ) ), void* private_data )
 {
-  int* p_empty = ( int* ) private_data;
+  struct rd_struct* rds = ( struct rd_struct* ) private_data;
 
-  if( dirent->inode == 0 ||
-      ( ( ( dirent->name_len & 0xFF ) == 1 ) && ( dirent->name[0] == '.' ) ) ||
-      ( ( ( dirent->name_len & 0xFF ) == 2 ) && ( dirent->name[0] == '.' ) &&
-        ( dirent->name[1] == '.' ) ) ) {
-
+  if( dirent->inode == 0 ) {
     return 0;
   }
-  *p_empty = 0;
-
+  if( ( ( dirent->name_len & 0xFF ) == 1 ) && ( dirent->name[0] == '.' ) ) {
+    return 0;
+  }
+  if( ( ( dirent->name_len & 0xFF ) == 2 ) && ( dirent->name[0] == '.' ) &&
+      ( dirent->name[1] == '.' ) ) {
+    rds->parent = dirent->inode;
+    return 0;
+  }
+  rds->empty = 0;
   return 0;
 }
 
-int Ext2FS::do_check_empty_dir( ext2_filsys e2fs, ext2_ino_t ino )
-{
-  errcode_t rc;
-  int empty = 1;
-
-  rc = ext2fs_dir_iterate2( e2fs, ino, 0, 0, rmdir_proc, &empty );
-  if( rc ) {
-    LOG_DEBUG( LOG_TAG, "while iterating over directory" );
-    return -EIO;
-  }
-
-  if( empty == 0 ) {
-    LOG_DEBUG( LOG_TAG, "directory not empty" );
-    return -ENOTEMPTY;
-  }
-
-  return 0;
-}
 
 int Ext2FS::op_rmdir( const char* path )
 {
-  int rt;
-  errcode_t rc;
+  ext2_ino_t child;
+  errcode_t err;
+  struct ext2_inode_large inode;
+  struct rd_struct rds;
+  int ret = 0;
 
-  char* p_path;
-  char* r_path;
+  LOG_INFO( LOG_TAG, "path=%s", path );
 
-  ext2_ino_t p_ino;
-  struct ext2_inode p_inode;
-  ext2_ino_t r_ino;
-  struct ext2_inode r_inode;
-
-
-  LOG_INFO( LOG_TAG, "path = %s", path );
-
-  rt = do_check_split( path, &p_path, &r_path );
-  if( rt != 0 ) {
-    LOG_DEBUG( LOG_TAG, "do_check_split: failed" );
-    return rt;
+  err = ext2fs_namei( e2fs, EXT2_ROOT_INO, EXT2_ROOT_INO, path, &child );
+  if( err ) {
+    ret = translate_error( e2fs, 0, err );
+    goto out;
   }
 
-  LOG_DEBUG( LOG_TAG, "parent: %s, child: %s", p_path, r_path );
+  rds.parent = 0;
+  rds.empty = 1;
 
-  rt = do_readinode( e2fs, p_path, &p_ino, &p_inode );
-  if( rt ) {
-    LOG_DEBUG( LOG_TAG, "do_readinode(%s, &p_ino, &p_inode); failed", p_path );
-    free_split( p_path, r_path );
-    return rt;
-  }
-  rt = do_readinode( e2fs, path, &r_ino, &r_inode );
-  if( rt ) {
-    LOG_DEBUG( LOG_TAG, "do_readinode(%s, &r_ino, &r_inode); failed", path );
-    free_split( p_path, r_path );
-    return rt;
-
-  }
-  if( !LINUX_S_ISDIR( r_inode.i_mode ) ) {
-    LOG_DEBUG( LOG_TAG, "%s is not a directory", path );
-    free_split( p_path, r_path );
-    return -ENOTDIR;
-  }
-  if( r_ino == EXT2_ROOT_INO ) {
-    LOG_DEBUG( LOG_TAG, "root dir cannot be removed", path );
-    free_split( p_path, r_path );
-    return -EIO;
+  err = ext2fs_dir_iterate2( e2fs, child, 0, 0, rmdir_proc, &rds );
+  if( err ) {
+    ret = translate_error( e2fs, child, err );
+    goto out;
   }
 
-  rt = do_check_empty_dir( e2fs, r_ino );
-  if( rt ) {
-    LOG_DEBUG( LOG_TAG, "do_check_empty_dir filed" );
-    free_split( p_path, r_path );
-    return rt;
+  if( rds.empty == 0 ) {
+    ret = -ENOTEMPTY;
+    goto out;
   }
 
-  rc = ext2fs_unlink( e2fs, p_ino, r_path, r_ino, 0 );
-  if( rc ) {
-    LOG_DEBUG( LOG_TAG, "while unlinking ino %d", ( int ) r_ino );
-    free_split( p_path, r_path );
-    return -EIO;
+  ret = unlink_file_by_name( e2fs, path );
+  if( ret ) {
+    goto out;
+  }
+  /* Directories have to be "removed" twice. */
+  ret = remove_inode( e2fs, child );
+  if( ret ) {
+    goto out;
+  }
+  ret = remove_inode( e2fs, child );
+  if( ret ) {
+    goto out;
   }
 
-  rt = do_remove_inode(e2fs, r_ino);
-  if( rt ) {
-    LOG_DEBUG( LOG_TAG, "do_killfilebyinode(r_ino, &r_inode); failed" );
-    free_split( p_path, r_path );
-    return rt;
+  if( rds.parent ) {
+    LOG_DEBUG( LOG_TAG,  "decr dir=%d link count", rds.parent );
+    err = ext2fs_read_inode_full( e2fs, rds.parent,
+                                  ( struct ext2_inode* )&inode,
+                                  sizeof( inode ) );
+    if( err ) {
+      ret = translate_error( e2fs, rds.parent, err );
+      goto out;
+    }
+    if( inode.i_links_count > 1 ) {
+      inode.i_links_count--;
+    }
+    ret = update_mtime( e2fs, rds.parent, &inode );
+    if( ret ) {
+      goto out;
+    }
+    err = ext2fs_write_inode_full( e2fs, rds.parent,
+                                   ( struct ext2_inode* )&inode,
+                                   sizeof( inode ) );
+    if( err ) {
+      ret = translate_error( e2fs, rds.parent, err );
+      goto out;
+    }
   }
 
-  rt = do_readinode( e2fs, p_path, &p_ino, &p_inode );
-  if( rt ) {
-    LOG_DEBUG( LOG_TAG, "do_readinode(p_path, &p_ino, &p_inode); failed" );
-    free_split( p_path, r_path );
-    return rt;
-  }
-  if( p_inode.i_links_count > 1 ) {
-    p_inode.i_links_count--;
-  }
-  p_inode.i_mtime = e2fs->now ? e2fs->now : time( NULL );
-  p_inode.i_ctime = e2fs->now ? e2fs->now : time( NULL );
-  rc = do_writeinode( e2fs, p_ino, &p_inode );
-  if( rc ) {
-    LOG_DEBUG( LOG_TAG, "do_writeinode(e2fs, ino, inode); failed" );
-    free_split( p_path, r_path );
-    return -EIO;
-  }
-
-  free_split( p_path, r_path );
-
-  return 0;
+out:
+  return ret;
 }
 
 } // medium

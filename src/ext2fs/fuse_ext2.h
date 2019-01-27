@@ -64,8 +64,13 @@ private:
 
   static int do_truncate( ext2_filsys e2fs, ext2_file_t efile, const char* path, off_t length );
 
-  static int do_check_empty_dir( ext2_filsys e2fs, ext2_ino_t ino );
-  static int do_remove_inode( ext2_filsys e2fs, ext2_ino_t ino );
+  static int check_inum_access( ext2_filsys fs, ext2_ino_t ino, mode_t mask );
+  static int update_ctime( ext2_filsys fs, ext2_ino_t ino, struct ext2_inode_large* pinode );
+  static int update_atime( ext2_filsys fs, ext2_ino_t ino );
+  static int update_mtime( ext2_filsys fs, ext2_ino_t ino, struct ext2_inode_large* pinode );
+
+  static int unlink_file_by_name( ext2_filsys fs, const char* path );
+  static int remove_inode( ext2_filsys e2fs, ext2_ino_t ino );
 
   static const char* LOG_TAG;
   struct struct_ext2_filsys filsys;

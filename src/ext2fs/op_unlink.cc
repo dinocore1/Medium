@@ -66,17 +66,9 @@ int Ext2FS::op_unlink( const char* path )
     return -EIO;
   }
 
-  if( r_inode.i_links_count > 0 ) {
-    r_inode.i_links_count -= 1;
-  }
-  r_inode.i_ctime = e2fs->now ? e2fs->now : time( NULL );
-  rc = do_writeinode( e2fs, r_ino, &r_inode );
-  if( rc ) {
-    LOG_DEBUG( LOG_TAG, "do_writeinode(e2fs, &r_ino, &r_inode); failed" );
-    free_split( p_path, r_path );
-    return -EIO;
-  }
+  do_remove_inode(e2fs, r_ino);
 
+  
   free_split( p_path, r_path );
 
   return 0;

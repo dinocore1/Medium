@@ -109,7 +109,7 @@ int Ext2FS::op_rmdir( const char* path )
     return -EIO;
   }
 
-  rt = do_killfilebyinode( e2fs, r_ino, &r_inode );
+  rt = do_remove_inode(e2fs, r_ino);
   if( rt ) {
     LOG_DEBUG( LOG_TAG, "do_killfilebyinode(r_ino, &r_inode); failed" );
     free_split( p_path, r_path );

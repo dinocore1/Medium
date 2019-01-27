@@ -39,6 +39,13 @@ public:
   int op_rmdir( const char* path );
 
 private:
+
+#define translate_error(fs, ino, err) __translate_error((fs), (err), (ino), \
+    __FILE__, __LINE__)
+
+  static int __translate_error( ext2_filsys fs, errcode_t err, ext2_ino_t ino,
+                                const char* file, int line );
+
   static int do_check( const char* path );
   static int do_check_split( const char* path, char** dirname, char** basename );
   static void free_split( char* dirname, char* basename );
@@ -58,11 +65,13 @@ private:
   static int do_truncate( ext2_filsys e2fs, ext2_file_t efile, const char* path, off_t length );
 
   static int do_check_empty_dir( ext2_filsys e2fs, ext2_ino_t ino );
-  static int do_killfilebyinode( ext2_filsys e2fs, ext2_ino_t ino, struct ext2_inode* inode );
+  static int do_remove_inode( ext2_filsys e2fs, ext2_ino_t ino );
 
   static const char* LOG_TAG;
   struct struct_ext2_filsys filsys;
   ext2_filsys e2fs;
+
+
 };
 
 }

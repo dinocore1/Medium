@@ -19,6 +19,49 @@ using medium::Path;
 struct struct_ext2_filsys filsys;
 ext2_filsys fs;
 
+int do_check (const char *path)
+{
+	const char *basename_path;
+	basename_path = strrchr(path, '/');
+	if (basename_path == NULL) {
+		LOG_WARN("", "this should not happen %s", path);
+		return -ENOENT;
+	}
+	basename_path++;
+	if (strlen(basename_path) > 255) {
+		LOG_WARN("", "basename exceeds 255 characters %s",path);
+		return -ENAMETOOLONG;
+	}
+	return 0;
+}
+
+int do_check_split (const char *path, char **dirname, char **basename)
+{
+	char *tmp;
+	char *cpath = strdup(path);
+	tmp = strrchr(cpath, '/');
+	if (tmp == NULL) {
+		//LOG_WARN("", "this should not happen %s", path);
+		free(cpath);
+		return -ENOENT;
+	}
+	*tmp='\0';
+	tmp++;
+	if (strlen(tmp) > 255) {
+		//LOG_WARN("", "basename exceeds 255 characters %s",path);
+		free(cpath);
+		return -ENAMETOOLONG;
+	}
+	*dirname = cpath;
+	*basename = tmp;
+	return 0;
+}
+
+void free_split (char *dirname, char *basename)
+{
+	free(dirname);
+}
+
 int do_readinode (ext2_filsys e2fs, const char *path, ext2_ino_t *ino, struct ext2_inode *inode)
 {
 	errcode_t rc;
@@ -90,29 +133,66 @@ static int get_inode(const char* path, ext2_ino_t& ino)
 
 }
 
+void do_fillstatbuf (ext2_filsys e2fs, ext2_ino_t ino, struct ext2_inode *inode, struct stat *st)
+{
+	
+	memset(st, 0, sizeof(*st));
+	/* XXX workaround
+	 * should be unique and != existing devices */
+	st->st_dev = (dev_t) ((long) e2fs);
+	st->st_ino = ino;
+	st->st_mode = inode->i_mode;
+	st->st_nlink = inode->i_links_count;
+	st->st_uid = getuid();
+	st->st_gid = getgid();
+	if (S_ISCHR(inode->i_mode) || S_ISBLK(inode->i_mode)) {
+    /*
+		if (inode->i_block[0]) {
+			st->st_rdev = old_decode_dev(ext2fs_le32_to_cpu(inode->i_block[0]));
+		} else {
+			st->st_rdev = new_decode_dev(ext2fs_le32_to_cpu(inode->i_block[1]));
+		}
+    */
+	} else {
+		st->st_rdev = 0;
+	}
+	st->st_size = EXT2_I_SIZE(inode);
+	st->st_blksize = EXT2_BLOCK_SIZE(e2fs->super);
+	st->st_blocks = inode->i_blocks;
+	st->st_atime = inode->i_atime;
+	st->st_mtime = inode->i_mtime;
+	st->st_ctime = inode->i_ctime;
+#if __FreeBSD__ == 10
+	st->st_gen = inode->i_generation;
+#endif
+	
+}
+
 static int do_getattr( const char* path, struct stat* st )
 {
-  int err;
-  ext2_ino_t ino;
-  struct ext2_inode inode;
+  int rt;
+	ext2_ino_t ino;
+	struct ext2_inode inode;
 
-  LOG_INFO( "", "do_getattr(%s)", path );
-  
+	
+	LOG_DEBUG("","path = %s", path);
 
-  if(get_inode(path, ino) != 0) {
-    return -ENOENT;
-  }
+	rt = do_check(path);
+	if (rt != 0) {
+		LOG_WARN("", "do_check(%s); failed", path);
+		return rt;
+	}
 
-  err = ext2fs_read_inode(fs, ino, &inode);
-  
-  st->st_mode = inode.i_mode;
-  st->st_nlink = 1;
-  st->st_uid = getuid();
-  st->st_gid = getgid();
-  st->st_size = inode.i_size;
+	rt = do_readinode(fs, path, &ino, &inode);
+	if (rt) {
+		LOG_WARN("", "do_readinode(%s, &ino, &vnode); failed", path);
+		return rt;
+	}
+	do_fillstatbuf(fs, ino, &inode, st);
 
-
-  return 0;
+	LOG_WARN("", "path: %s, size: %d", path, st->st_size);
+	
+return 0;
 }
 
 typedef struct dir_entry_t {
@@ -167,24 +247,11 @@ static int do_read( const char* path, char* buffer, size_t size, off_t offset, s
   LOG_INFO( "", "do_read(%s)", path );
 }
 
+
+
 static int do_mkdir(const char* path, mode_t mode)
 {
-  int retval;
-  ext2_ino_t ino;
-  LOG_INFO( "", "do_mkdir(%s, 0x%x)", path, mode);
-
-  Path newDir = Path::create(path);
-  Path parent = newDir.parent();
-
-  retval = parent.lookup_ino(fs, ino);
-  if(retval != 0) {
-    return retval;
-  }
-
-  retval = ext2fs_mkdir(fs, ino, 0, newDir.name());
   
-
-  return retval;
 }
 
 static struct fuse_operations operations;
@@ -201,6 +268,8 @@ int main( int argc, char* argv[] )
   if((err = ext2fs_open(filepath, EXT2_FLAG_RW, 0, 0, unix_io_manager, &fs)) != 0){
     LOG_ERROR("", "could not open fs image: %s", filepath);
   }
+
+  err = ext2fs_read_bitmaps(fs);
 
   operations.getattr = do_getattr;
   operations.readdir = do_readdir;

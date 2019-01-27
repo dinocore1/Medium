@@ -6,6 +6,7 @@ https://github.com/gkostka/lwext4
 http://www.giis.co.in/libext2fs.pdf
 http://gauss.ececs.uc.edu/Courses/c4029/labs/lab11.html
 https://github.com/libfuse/libfuse/blob/master/example/passthrough.c
+https://github.com/alperakcan/fuse-ext2/tree/master/fuse-ext2
 
 create ext2 image with:
 ```
@@ -20,4 +21,9 @@ Every file is determinastly split by rolling hash. Every resulting block SHA1 ha
 ## File System ##
 
 Every file is represented with an inode which contains the filename, filesize, permissions, and list of SHA1 hashes that constitute the file's data. 
+
+
+## Storage ##
+
+The live filesystem is backed by an ext2 image for doing read/writes on new data. Files marked with type EXT2_FT_CHRDEV are files backed by list of SHA1 hashes and fetches its data from the file_parts filesystem.
 

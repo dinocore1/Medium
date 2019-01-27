@@ -7,6 +7,13 @@ project(medium)
 
 #file(GLOB Medium_SRCS src/*.cc)
 set(Medium_SRCS
+    src/ext2fs/do_check.cc
+    src/ext2fs/do_readinode.cc
+    src/ext2fs/do_writeinode.cc
+    src/ext2fs/fuse_ext2.cc
+    src/ext2fs/op_getattr.cc
+    src/ext2fs/op_mkdir.cc
+    src/ext2fs/op_readdir.cc
     src/DataSplitterOutputStream.cc
     src/main.cc
     src/Path.cc

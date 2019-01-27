@@ -20,6 +20,16 @@ using namespace medium;
 
 Ext2FS mLiveFS;
 
+static void* do_init( fuse_conn_info* info )
+{
+  mLiveFS.op_init();
+  return NULL;
+}
+
+static void do_destroy( void* p )
+{
+  mLiveFS.op_destroy();
+}
 
 static int do_getattr( const char* path, struct stat* st )
 {
@@ -94,7 +104,8 @@ int main( int argc, char* argv[] )
   }
 
 
-
+  operations.init = do_init;
+  operations.destroy = do_destroy;
   operations.getattr = do_getattr;
   operations.readdir = do_readdir;
   operations.mkdir = do_mkdir;

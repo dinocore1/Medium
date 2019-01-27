@@ -8,6 +8,7 @@ project(medium)
 #file(GLOB Medium_SRCS src/*.cc)
 set(Medium_SRCS
     src/ext2fs/do_check.cc
+    src/ext2fs/do_killfilebyinode.cc
     src/ext2fs/do_read.cc
     src/ext2fs/do_readinode.cc
     src/ext2fs/do_writeinode.cc
@@ -18,6 +19,7 @@ set(Medium_SRCS
     src/ext2fs/op_open.cc
     src/ext2fs/op_readdir.cc
     src/ext2fs/op_release.cc
+    src/ext2fs/op_rmdir.cc
     src/ext2fs/op_truncate.cc
     src/ext2fs/op_unlink.cc
     src/ext2fs/op_write.cc

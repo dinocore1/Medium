@@ -76,6 +76,11 @@ int do_unlink( const char* path )
   return mLiveFS.op_unlink( path );
 }
 
+int do_rmdir( const char* path )
+{
+  return mLiveFS.op_rmdir( path );
+}
+
 static struct fuse_operations operations;
 
 
@@ -101,6 +106,7 @@ int main( int argc, char* argv[] )
   operations.truncate = do_truncate;
   operations.ftruncate = do_ftruncate;
   operations.unlink = do_unlink;
+  operations.rmdir = do_rmdir;
 
   return fuse_main( argc, argv, &operations, NULL );
 

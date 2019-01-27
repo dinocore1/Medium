@@ -7,6 +7,7 @@ http://www.giis.co.in/libext2fs.pdf
 http://gauss.ececs.uc.edu/Courses/c4029/labs/lab11.html
 https://github.com/libfuse/libfuse/blob/master/example/passthrough.c
 https://github.com/alperakcan/fuse-ext2/tree/master/fuse-ext2
+https://github.com/tytso/e2fsprogs/blob/75da66777937dc16629e4aea0b436e4cffaa866e/misc/fuse2fs.c
 
 create ext2 image with:
 ```

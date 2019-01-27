@@ -8,14 +8,12 @@ int Ext2FS::do_writeinode( ext2_filsys e2fs, ext2_ino_t ino, struct ext2_inode* 
   int rt;
   errcode_t rc;
   if( inode->i_links_count < 1 ) {
-    //TODO: do we even need this?
-    /*
-    rt = do_killfilebyinode(e2fs, ino, inode);
-    if (rt) {
-    LOG_DEBUG(LOG_TAG, "do_killfilebyinode(e2fs, ino, inode); failed");
-    return rt;
+    rt = do_killfilebyinode( e2fs, ino, inode );
+    if( rt ) {
+      LOG_DEBUG( LOG_TAG, "do_killfilebyinode(e2fs, ino, inode); failed" );
+      return rt;
     }
-    */
+
   } else {
     rc = ext2fs_write_inode( e2fs, ino, inode );
     if( rc ) {

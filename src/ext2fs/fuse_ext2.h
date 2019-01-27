@@ -36,6 +36,7 @@ public:
   int op_truncate( const char* path, off_t length );
   int op_ftruncate( const char* path, off_t length, struct fuse_file_info* fi );
   int op_unlink( const char* path );
+  int op_rmdir( const char* path );
 
 private:
   static int do_check( const char* path );
@@ -55,6 +56,9 @@ private:
   static size_t do_write( ext2_file_t efile, const char* buf, size_t size, off_t offset );
 
   static int do_truncate( ext2_filsys e2fs, ext2_file_t efile, const char* path, off_t length );
+
+  static int do_check_empty_dir( ext2_filsys e2fs, ext2_ino_t ino );
+  static int do_killfilebyinode( ext2_filsys e2fs, ext2_ino_t ino, struct ext2_inode* inode );
 
   static const char* LOG_TAG;
   struct struct_ext2_filsys filsys;

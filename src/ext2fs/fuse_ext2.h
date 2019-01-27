@@ -14,10 +14,9 @@
 #include <ext2fs/ext2fs.h>
 
 #include <baseline/Baseline.h>
+#include <baseline/RefBase.h>
 
 namespace medium {
-
-#define EXT2FS_FILE(efile) ((ext2_file_t) (unsigned long) (efile))
 
 class Ext2FS
 {
@@ -42,6 +41,12 @@ public:
 
 protected:
 
+  struct FileHandle : public baseline::RefBase {
+    ext2_ino_t ino;
+    int open_flags;
+    ext2_file_t efile;
+  };
+
   static int __translate_error( ext2_filsys fs, errcode_t err, ext2_ino_t ino,
                                 const char* file, int line );
 
@@ -54,20 +59,14 @@ protected:
 
   static void do_fillstatbuf( ext2_filsys e2fs, ext2_ino_t ino, struct ext2_inode* inode, struct stat* st );
 
-  static ext2_file_t do_open( ext2_filsys e2fs, const char* path, int flags );
-  static int do_release( ext2_file_t efile );
 
   static int do_create( ext2_filsys e2fs, const char* path, mode_t mode, dev_t dev, const char* fastsymlink );
 
-  static size_t do_write( ext2_file_t efile, const char* buf, size_t size, off_t offset );
-
-  static int do_truncate( ext2_filsys e2fs, ext2_file_t efile, const char* path, off_t length );
 
   static int check_inum_access( ext2_filsys fs, ext2_ino_t ino, mode_t mask );
   static int update_ctime( ext2_filsys fs, ext2_ino_t ino, struct ext2_inode_large* pinode );
   static int update_atime( ext2_filsys fs, ext2_ino_t ino );
   static int update_mtime( ext2_filsys fs, ext2_ino_t ino, struct ext2_inode_large* pinode );
-
   static int unlink_file_by_name( ext2_filsys fs, const char* path );
   static int remove_inode( ext2_filsys e2fs, ext2_ino_t ino );
 

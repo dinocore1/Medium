@@ -2,78 +2,76 @@
 
 namespace medium {
 
-int Ext2FS::do_truncate( ext2_filsys e2fs, ext2_file_t efile, const char* path, off_t length )
+
+
+int Ext2FS::op_truncate( const char* path, off_t len )
 {
-  int rt;
+  errcode_t err;
   ext2_ino_t ino;
-  struct ext2_inode inode;
-  errcode_t rc;
-
-  rc = ext2fs_file_set_size2( efile, length );
-  if( rc ) {
-    do_release( efile );
-    LOG_DEBUG( LOG_TAG, "ext2fs_file_set_size(efile, %d); failed", length );
-    if( rc == EXT2_ET_FILE_TOO_BIG ) {
-      return -EFBIG;
-    }
-    return -EIO;
-  }
-
-  rt = do_readinode( e2fs, path, &ino, &inode );
-  if( rt ) {
-    LOG_DEBUG( LOG_TAG, "do_readinode(%s, &ino, &vnode); failed", path );
-    do_release( efile );
-    return rt;
-  }
-  inode.i_ctime = e2fs->now ? e2fs->now : time( NULL );
-  rt = do_writeinode( e2fs, ino, &inode );
-  if( rt ) {
-    LOG_DEBUG( LOG_TAG, "do_writeinode(e2fs, ino, &inode); failed" );
-    do_release( efile );
-    return -EIO;
-  }
-}
-
-int Ext2FS::op_truncate( const char* path, off_t length )
-{
-  int rt;
   ext2_file_t efile;
+  int ret;
 
-
-  LOG_INFO( LOG_TAG, "path = %s", path );
-
-  rt = do_check( path );
-  if( rt != 0 ) {
-    LOG_DEBUG( LOG_TAG, "do_check(%s); failed", path );
-    return rt;
-  }
-  efile = do_open( e2fs, path, O_WRONLY );
-  if( efile == NULL ) {
-    LOG_DEBUG( LOG_TAG, "do_open(%s); failed", path );
-    return -ENOENT;
+  err = ext2fs_namei( e2fs, EXT2_ROOT_INO, EXT2_ROOT_INO, path, &ino );
+  if( err || ino == 0 ) {
+    ret = translate_error( e2fs, 0, err );
+    return ret;
   }
 
-  rt = do_truncate( e2fs, efile, path, length );
+  ret = check_inum_access( e2fs, ino, W_OK );
+  if( ret ) {
+    return ret;
+  }
 
-  rt = do_release( efile );
-  if( rt != 0 ) {
-    LOG_DEBUG( LOG_TAG, "do_release(efile); failed" );
-    return rt;
+  err = ext2fs_file_open( e2fs, ino, EXT2_FILE_WRITE, &efile );
+  if( err ) {
+    ret = translate_error( e2fs, ino, err );
+    return ret;
+  }
+
+  err = ext2fs_file_set_size2( efile, len );
+  if( err ) {
+    ret = translate_error( e2fs, ino, err );
+    return ret;
+  }
+
+
+  err = ext2fs_file_close( efile );
+  if( ret ) {
+    return ret;
+  }
+  if( err ) {
+    ret = translate_error( e2fs, ino, err );
+    return ret;
+  }
+
+  ret = update_mtime( e2fs, ino, NULL );
+  if( ret ) {
+    return ret;
   }
 
   return 0;
 }
 
-int Ext2FS::op_ftruncate( const char* path, off_t length, struct fuse_file_info* fi )
+int Ext2FS::op_ftruncate( const char* path, off_t len, struct fuse_file_info* fi )
 {
-  int rt;
-  ext2_file_t efile = EXT2FS_FILE( fi->fh );
+  errcode_t err;
+  int ret;
+  FileHandle* file = ( FileHandle* ) fi->fh;
 
   LOG_INFO( LOG_TAG, "path = %s", path );
 
-  rt = do_truncate( e2fs, efile, path, length );
+  err = ext2fs_file_set_size2( file->efile, len );
+  if( err ) {
+    ret = translate_error( e2fs, file->ino, err );
+    return ret;
+  }
 
-  return rt;
+  ret = update_mtime( e2fs, file->ino, NULL );
+  if( ret ) {
+    return ret;
+  }
+
+  return 0;
 }
 
 }

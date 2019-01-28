@@ -39,6 +39,8 @@ public:
   int op_unlink( const char* path );
   int op_rmdir( const char* path );
 
+  ext2_filsys e2fs;
+
 protected:
 
   struct FileHandle : public baseline::RefBase {
@@ -70,7 +72,7 @@ protected:
 
   static const char* LOG_TAG;
   struct struct_ext2_filsys filsys;
-  ext2_filsys e2fs;
+
 
 
 };

@@ -13,12 +13,69 @@
 #include "ext2fs/fuse_ext2.h"
 
 #include <baseline/Baseline.h>
+#include <baseline/ExecutorService.h>
+
+#include <set>
 
 #include "Path.h"
+#include "ScanTask.h"
 
 using namespace medium;
 
-Ext2FS mLiveFS;
+using namespace baseline;
+
+using std::set;
+
+sp<ExecutorService> mScanQueue;
+
+class LiveExt2FS : public Ext2FS
+{
+public:
+  //int op_open( const char* path, struct fuse_file_info* fi );
+  int op_release( const char* path, struct fuse_file_info* fi );
+  int op_write( const char* path, const char* buf, size_t size, off_t offset, struct fuse_file_info* fi );
+
+  set<ext2_ino_t> mOpenWritableFiles;
+
+private:
+
+
+};
+
+/*
+int LiveExt2FS::op_open(const char* path, struct fuse_file_info* fi)
+{
+  int retval = Ext2FS::op_open(path, fi);
+  if(retval == 0 && fi->flags & O_WRONLY || fi->flags & O_RDWR) {
+    FileHandle* file = (FileHandle*) fi->fh;
+    mOpenWritableFiles.emplace(file->ino);
+  }
+
+  return retval;
+}
+*/
+
+int LiveExt2FS::op_write( const char* path, const char* buf, size_t size, off_t offset, struct fuse_file_info* fi )
+{
+  FileHandle* file = ( FileHandle* ) fi->fh;
+  ext2_ino_t ino = file->ino;
+  int retval = Ext2FS::op_write( path, buf, size, offset, fi );
+  mOpenWritableFiles.emplace( ino );
+  return retval;
+}
+
+int LiveExt2FS::op_release( const char* path, struct fuse_file_info* fi )
+{
+  FileHandle* file = ( FileHandle* ) fi->fh;
+  ext2_ino_t ino = file->ino;
+  int retval = Ext2FS::op_release( path, fi );
+  if( retval == 0 && mOpenWritableFiles.erase( ino ) ) {
+    LOG_INFO( "", "queue ino for scanning: %d", ino );
+    mScanQueue->schedule( new ScanTask( *this, ino ), 1000 );
+  }
+}
+
+LiveExt2FS mLiveFS;
 
 static void* do_init( fuse_conn_info* info )
 {
@@ -99,10 +156,18 @@ int main( int argc, char* argv[] )
   int err;
 
   err = mLiveFS.open( "file.fs", EXT2_FLAG_RW );
-  if( err != 0 ) {
-    return -1;
+  if( err ) {
+    return err;
   }
 
+  /*
+  err = mPartsFS.open("parts.fs", EXT2_FLAG_RW);
+  if(err) {
+    return err;
+  }
+  */
+
+  mScanQueue = ExecutorService::createExecutorService( String8( "scanner" ) );
 
   operations.init = do_init;
   operations.destroy = do_destroy;
@@ -120,5 +185,11 @@ int main( int argc, char* argv[] )
   operations.rmdir = do_rmdir;
 
   return fuse_main( argc, argv, &operations, NULL );
+
+  LOG_INFO( "", "fuse_main exit" );
+
+  mScanQueue->shutdown();
+
+  LOG_INFO( "", "mScanQueue shutdown" );
 
 }

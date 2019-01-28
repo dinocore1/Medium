@@ -27,11 +27,12 @@ set(Medium_SRCS
     src/main.cc
     src/Path.cc
     src/RabinKarpHash.cc
+    src/ScanTask.cc
 )
 
 include_directories(src ${CMAKE_CURRENT_BINARY_DIR}/include ${FLINT_BUILDROOT}/include)
 link_directories(${FLINT_BUILDROOT}/lib)
 
 add_executable(medium ${Medium_SRCS} )
-target_link_libraries(medium pthread baseline fuse ext2fs)
+target_link_libraries(medium baseline fuse ext2fs pthread)
 target_compile_definitions(medium PRIVATE _FILE_OFFSET_BITS=64)

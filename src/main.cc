@@ -27,6 +27,7 @@ using namespace baseline;
 using std::set;
 
 sp<ExecutorService> mScanQueue;
+Ext2FS mPartsFS;
 
 class LiveExt2FS : public Ext2FS
 {
@@ -71,11 +72,12 @@ int LiveExt2FS::op_release( const char* path, struct fuse_file_info* fi )
   int retval = Ext2FS::op_release( path, fi );
   if( retval == 0 && mOpenWritableFiles.erase( ino ) ) {
     LOG_INFO( "", "queue ino for scanning: %d", ino );
-    mScanQueue->schedule( new ScanTask( *this, ino ), 1000 );
+    mScanQueue->schedule( new ScanTask( *this, ino, mPartsFS ), 5000 );
   }
 }
 
 LiveExt2FS mLiveFS;
+
 
 static void* do_init( fuse_conn_info* info )
 {
@@ -123,29 +125,34 @@ static int do_read( const char* path, char* buffer, size_t size, off_t offset, s
   return mLiveFS.op_read( path, buffer, size, offset, fi );
 }
 
-int do_write( const char* path, const char* buf, size_t size, off_t offset, struct fuse_file_info* fi )
+static int do_write( const char* path, const char* buf, size_t size, off_t offset, struct fuse_file_info* fi )
 {
   return mLiveFS.op_write( path, buf, size, offset, fi );
 }
 
-int do_truncate( const char* path, off_t length )
+static int do_truncate( const char* path, off_t length )
 {
   return mLiveFS.op_truncate( path, length );
 }
 
-int do_ftruncate( const char* path, off_t length, struct fuse_file_info* fi )
+static int do_ftruncate( const char* path, off_t length, struct fuse_file_info* fi )
 {
   return mLiveFS.op_ftruncate( path, length, fi );
 }
 
-int do_unlink( const char* path )
+static int do_unlink( const char* path )
 {
   return mLiveFS.op_unlink( path );
 }
 
-int do_rmdir( const char* path )
+static int do_rmdir( const char* path )
 {
   return mLiveFS.op_rmdir( path );
+}
+
+static int do_rename( const char* from, const char* to )
+{
+  return mLiveFS.op_rename( from, to );
 }
 
 static struct fuse_operations operations;
@@ -160,12 +167,10 @@ int main( int argc, char* argv[] )
     return err;
   }
 
-  /*
-  err = mPartsFS.open("parts.fs", EXT2_FLAG_RW);
-  if(err) {
+  err = mPartsFS.open( "parts.fs", EXT2_FLAG_RW );
+  if( err ) {
     return err;
   }
-  */
 
   mScanQueue = ExecutorService::createExecutorService( String8( "scanner" ) );
 
@@ -183,13 +188,18 @@ int main( int argc, char* argv[] )
   operations.ftruncate = do_ftruncate;
   operations.unlink = do_unlink;
   operations.rmdir = do_rmdir;
+  operations.rename = do_rename;
 
-  return fuse_main( argc, argv, &operations, NULL );
+  int retval = fuse_main( argc, argv, &operations, NULL );
 
   LOG_INFO( "", "fuse_main exit" );
+
+  mPartsFS.op_destroy();
 
   mScanQueue->shutdown();
 
   LOG_INFO( "", "mScanQueue shutdown" );
+
+  return retval;
 
 }

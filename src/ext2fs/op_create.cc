@@ -2,7 +2,7 @@
 
 namespace medium {
 
-static int ext2_file_type( unsigned int mode )
+int Ext2FS::ext2_file_type( unsigned int mode )
 {
   if( LINUX_S_ISREG( mode ) ) {
     return EXT2_FT_REG_FILE;

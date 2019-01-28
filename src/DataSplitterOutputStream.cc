@@ -17,20 +17,22 @@ DataSplitterOutputStream::DataSplitterOutputStream( Callback* cb )
 
 void DataSplitterOutputStream::close()
 {
-  if( mOutput ) {
+  if( !mWindow.empty() ) {
     mOutput->close();
-    mOutput = nullptr;
+    mCallback->onNewBlock( mStrongHash->finalize() );
+    mOutput.reset();
+  }
+  if( mOutput.get() ) {
+    mOutput->close();
+    mOutput.reset();
   }
 }
 
 int DataSplitterOutputStream::write( uint8_t* buf, size_t off, size_t len )
 {
-  if( mOutput == nullptr ) {
-    mOutput = mCallback->createOutput();
-    mStrongHash->reset();
-  }
+
   for( int i = 0; i < len; i++ ) {
-    uint8_t in = buf[i];
+    uint8_t in = buf[i + off];
     if( mWindow.size() < WINDOW_SIZE ) {
       mRollingHash.eat( in );
     } else {
@@ -38,17 +40,21 @@ int DataSplitterOutputStream::write( uint8_t* buf, size_t off, size_t len )
       mRollingHash.update( in, out );
     }
     mWindow.put( in );
-    mStrongHash->update( &buf[i], 1 );
+    mStrongHash->update( &in, 1 );
+
+    if( mOutput.get() == nullptr ) {
+      mOutput.reset( mCallback->createOutput() );
+    }
+    mOutput->write( &in, i, 1 );
 
     RabinKarpHash::hashvalue_t rollingHash = mRollingHash.hash();
     if( rollingHash <= DIFFICULTY ) {
       mOutput->close();
       mCallback->onNewBlock( mStrongHash->finalize() );
-      mStrongHash->reset();
-      mOutput = mCallback->createOutput();
-    }
 
-    mOutput->write( buf, i, 1 );
+      mWindow.clear();
+      mStrongHash->reset();
+    }
   }
 
   return len;

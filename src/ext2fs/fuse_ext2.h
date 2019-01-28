@@ -38,16 +38,17 @@ public:
   int op_ftruncate( const char* path, off_t length, struct fuse_file_info* fi );
   int op_unlink( const char* path );
   int op_rmdir( const char* path );
+  int op_rename( const char* from, const char* to );
 
   ext2_filsys e2fs;
-
-protected:
 
   struct FileHandle : public baseline::RefBase {
     ext2_ino_t ino;
     int open_flags;
     ext2_file_t efile;
   };
+
+protected:
 
   static int __translate_error( ext2_filsys fs, errcode_t err, ext2_ino_t ino,
                                 const char* file, int line );
@@ -60,6 +61,8 @@ protected:
   static int do_writeinode( ext2_filsys e2fs, ext2_ino_t ino, struct ext2_inode* inode );
 
   static void do_fillstatbuf( ext2_filsys e2fs, ext2_ino_t ino, struct ext2_inode* inode, struct stat* st );
+
+  static int ext2_file_type( unsigned int mode );
 
   static int fs_can_allocate( ext2_filsys fs, blk64_t num );
   static int check_inum_access( ext2_filsys fs, ext2_ino_t ino, mode_t mask );

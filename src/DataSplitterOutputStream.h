@@ -32,7 +32,7 @@ private:
   Callback* mCallback;
   RabinKarpHash mRollingHash;
   baseline::CircleBuffer<uint8_t> mWindow;
-  OutputStream* mOutput;
+  up<OutputStream> mOutput;
   up<HashFunction> mStrongHash;
 };
 

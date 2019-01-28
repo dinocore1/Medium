@@ -17,7 +17,7 @@ namespace medium {
 class ScanTask : public baseline::Runnable, public DataSplitterOutputStream::Callback
 {
 public:
-  ScanTask( Ext2FS& mLiveFS, ext2_ino_t );
+  ScanTask( Ext2FS& livefs, ext2_ino_t, Ext2FS& partsFS );
   void run();
 
   baseline::OutputStream* createOutput();
@@ -25,6 +25,7 @@ public:
 
   Ext2FS& mLiveFS;
   ext2_ino_t mIno;
+  Ext2FS& mPartsFS;
 };
 
 } // medium

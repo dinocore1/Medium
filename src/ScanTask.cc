@@ -6,8 +6,63 @@ using namespace baseline;
 
 namespace medium {
 
-ScanTask::ScanTask( Ext2FS& liveFS, ext2_ino_t ino )
-  : mLiveFS( liveFS ), mIno( ino )
+
+class Ex2FileOutputStream : public OutputStream
+{
+public:
+  Ex2FileOutputStream( Ext2FS& fs )
+    : mFS( fs ) {
+    int err;
+    fi.flags = O_WRONLY;
+
+    err = mFS.op_open( "/incoming.dat", &fi );
+    if( err ) {
+      err = mFS.op_create( "/incoming.dat", S_IFREG | 0644, &fi );
+      if( err ) {
+        LOG_ERROR( LOG_TAG, "could not create new file: %d", err );
+        return;
+      }
+    }
+
+    Ext2FS::FileHandle* file = ( Ext2FS::FileHandle* ) fi.fh;
+    ino = file->ino;
+
+    err = ext2fs_file_set_size2( file->efile, 0 );
+
+
+  }
+
+  void close() {
+    mFS.op_release( nullptr, &fi );
+  }
+
+  int write( uint8_t* buf, size_t offset, size_t len ) {
+    unsigned int bytes_written;
+    Ext2FS::FileHandle* file = ( Ext2FS::FileHandle* ) fi.fh;
+    int i = 0;
+    errcode_t err;
+
+    while( len > 0 ) {
+      err = ext2fs_file_write( file->efile, &buf[i], len, &bytes_written );
+      if( err ) {
+        LOG_ERROR( LOG_TAG, "" );
+        return -1;
+      }
+      i += bytes_written;
+      len -= bytes_written;
+    }
+
+    return 0;
+  }
+
+private:
+  Ext2FS& mFS;
+  struct fuse_file_info fi;
+  ext2_ino_t ino;
+};
+
+ScanTask::ScanTask( Ext2FS& liveFS, ext2_ino_t ino, Ext2FS& partsFS )
+  : mLiveFS( liveFS ), mIno( ino ), mPartsFS( partsFS )
 {}
 
 #define BUF_SIZE 1024
@@ -57,6 +112,8 @@ void ScanTask::run()
     dout.write( buf, 0, bytes_read );
   }
 
+  dout.close();
+
   LOG_INFO( LOG_TAG, "done" );
 
 
@@ -64,7 +121,7 @@ void ScanTask::run()
 
 OutputStream* ScanTask::createOutput()
 {
-  return new NullOutputStream();
+  return new Ex2FileOutputStream( mPartsFS );
 }
 
 void ScanTask::onNewBlock( const HashCode& code )

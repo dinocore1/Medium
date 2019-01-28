@@ -128,7 +128,7 @@ static void increment_version( struct ext2_inode_large* inode )
   }
 }
 
-static void init_times( struct ext2_inode_large* inode )
+void Ext2FS::init_times( struct ext2_inode_large* inode )
 {
   struct timespec now;
 
@@ -247,6 +247,34 @@ int Ext2FS::update_mtime( ext2_filsys fs, ext2_ino_t ino, struct ext2_inode_larg
   }
 
   return 0;
+}
+
+int Ext2FS::fs_can_allocate( ext2_filsys fs, blk64_t num )
+{
+  blk64_t reserved;
+
+  /*
+  dbg_printf( "%s: Asking for %llu; alloc_all=%d total=%llu free=%llu "
+              "rsvd=%llu\n", __func__, num, ff->alloc_all_blocks,
+              ext2fs_blocks_count( fs->super ),
+              ext2fs_free_blocks_count( fs->super ),
+              ext2fs_r_blocks_count( fs->super ) );
+  */
+
+  if( num > ext2fs_blocks_count( fs->super ) ) {
+    return 0;
+  }
+
+  /*
+   * Different meaning for r_blocks -- libext2fs has bugs where the FS
+   * can get corrupted if it totally runs out of blocks.  Avoid this
+   * by refusing to allocate any of the reserve blocks to anybody.
+   */
+  reserved = ext2fs_r_blocks_count( fs->super );
+  if( reserved == 0 ) {
+    reserved = ext2fs_blocks_count( fs->super ) / 10;
+  }
+  return ext2fs_free_blocks_count( fs->super ) > reserved + num;
 }
 
 int Ext2FS::check_inum_access( ext2_filsys fs, ext2_ino_t ino, mode_t mask )

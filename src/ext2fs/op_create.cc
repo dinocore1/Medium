@@ -2,177 +2,159 @@
 
 namespace medium {
 
-int do_modetoext2lag( mode_t mode )
+static int ext2_file_type( unsigned int mode )
 {
-  if( S_ISREG( mode ) ) {
+  if( LINUX_S_ISREG( mode ) ) {
     return EXT2_FT_REG_FILE;
-  } else if( S_ISDIR( mode ) ) {
+  }
+
+  if( LINUX_S_ISDIR( mode ) ) {
     return EXT2_FT_DIR;
-  } else if( S_ISCHR( mode ) ) {
+  }
+
+  if( LINUX_S_ISCHR( mode ) ) {
     return EXT2_FT_CHRDEV;
-  } else if( S_ISBLK( mode ) ) {
+  }
+
+  if( LINUX_S_ISBLK( mode ) ) {
     return EXT2_FT_BLKDEV;
-  } else if( S_ISFIFO( mode ) ) {
-    return EXT2_FT_FIFO;
-  } else if( S_ISSOCK( mode ) ) {
-    return EXT2_FT_SOCK;
-  } else if( S_ISLNK( mode ) ) {
+  }
+
+  if( LINUX_S_ISLNK( mode ) ) {
     return EXT2_FT_SYMLINK;
   }
-  return EXT2_FT_UNKNOWN;
-}
 
-int Ext2FS::do_create( ext2_filsys e2fs, const char* path, mode_t mode, dev_t dev, const char* fastsymlink )
-{
-  int rt;
-  time_t tm;
-  errcode_t rc;
-
-  char* p_path;
-  char* r_path;
-
-  ext2_ino_t ino;
-  struct ext2_inode inode;
-  ext2_ino_t n_ino;
-
-  struct fuse_context* ctx;
-
-  LOG_DEBUG( LOG_TAG, "path = %s, mode: 0%o", path, mode );
-
-  rt = do_check_split( path, &p_path, &r_path );
-
-  LOG_DEBUG( LOG_TAG, "parent: %s, child: %s", p_path, r_path );
-
-  rt = do_readinode( e2fs, p_path, &ino, &inode );
-  if( rt ) {
-    LOG_DEBUG( LOG_TAG, "do_readinode(%s, &ino, &inode); failed", p_path );
-    free_split( p_path, r_path );
-    return rt;
+  if( LINUX_S_ISFIFO( mode ) ) {
+    return EXT2_FT_FIFO;
   }
 
-  rc = ext2fs_new_inode( e2fs, ino, mode, 0, &n_ino );
-  if( rc ) {
-    LOG_DEBUG( LOG_TAG, "ext2fs_new_inode(ep.fs, ino, mode, 0, &n_ino); failed" );
-    free_split( p_path, r_path );
-    return -ENOMEM;
+  if( LINUX_S_ISSOCK( mode ) ) {
+    return EXT2_FT_SOCK;
   }
-
-  do {
-    LOG_DEBUG( LOG_TAG, "calling ext2fs_link(e2fs, %d, %s, %d, %d);", ino, r_path, n_ino, do_modetoext2lag( mode ) );
-    rc = ext2fs_link( e2fs, ino, r_path, n_ino, do_modetoext2lag( mode ) );
-    if( rc == EXT2_ET_DIR_NO_SPACE ) {
-      LOG_DEBUG( LOG_TAG, "calling ext2fs_expand_dir(e2fs, &d)", ino );
-      if( ext2fs_expand_dir( e2fs, ino ) ) {
-        LOG_DEBUG( LOG_TAG, "error while expanding directory %s (%d)", p_path, ino );
-        free_split( p_path, r_path );
-        return -ENOSPC;
-      }
-    }
-  } while( rc == EXT2_ET_DIR_NO_SPACE );
-  if( rc ) {
-    LOG_DEBUG( LOG_TAG, "ext2fs_link(e2fs, %d, %s, %d, %d); failed", ino, r_path, n_ino, do_modetoext2lag( mode ) );
-    free_split( p_path, r_path );
-    return -EIO;
-  }
-
-  if( ext2fs_test_inode_bitmap( e2fs->inode_map, n_ino ) ) {
-    LOG_DEBUG( LOG_TAG, "inode already set" );
-  }
-
-  ext2fs_inode_alloc_stats2( e2fs, n_ino, +1, 0 );
-  memset( &inode, 0, sizeof( inode ) );
-  tm = e2fs->now ? e2fs->now : time( NULL );
-  inode.i_mode = mode;
-  inode.i_atime = inode.i_ctime = inode.i_mtime = tm;
-  inode.i_links_count = 1;
-  inode.i_size = 0;
-  //TODO: look at this
-  /*
-  ctx = fuse_get_context();
-  if (ctx) {
-  ext2_write_uid(&inode, ctx->uid);
-  ext2_write_gid(&inode, ctx->gid);
-  }
-  */
-  if( e2fs->super->s_feature_incompat&
-      EXT3_FEATURE_INCOMPAT_EXTENTS ) {
-    int i;
-    struct ext3_extent_header* eh;
-
-    eh = ( struct ext3_extent_header* ) &inode.i_block[0];
-    eh->eh_depth = 0;
-    eh->eh_entries = 0;
-    eh->eh_magic = ext2fs_cpu_to_le16( EXT3_EXT_MAGIC );
-    i = ( sizeof( inode.i_block ) - sizeof( *eh ) ) /
-        sizeof( struct ext3_extent );
-    eh->eh_max = ext2fs_cpu_to_le16( i );
-    inode.i_flags |= EXT4_EXTENTS_FL;
-  }
-
-  //TODO: blah
-  /*
-  if (S_ISCHR(mode) || S_ISBLK(mode)) {
-  if (old_valid_dev(dev))
-  	inode.i_block[0]= ext2fs_cpu_to_le32(old_encode_dev(dev));
-  else
-  	inode.i_block[1]= ext2fs_cpu_to_le32(new_encode_dev(dev));
-  }
-  */
-
-  if( S_ISLNK( mode ) && fastsymlink != NULL ) {
-    inode.i_size = strlen( fastsymlink );
-    strncpy( ( char* ) & ( inode.i_block[0] ), fastsymlink,
-             ( EXT2_N_BLOCKS * sizeof( inode.i_block[0] ) ) );
-  }
-
-  rc = ext2fs_write_new_inode( e2fs, n_ino, &inode );
-  if( rc ) {
-    LOG_DEBUG( LOG_TAG, "ext2fs_write_new_inode(e2fs, n_ino, &inode);" );
-    free_split( p_path, r_path );
-    return -EIO;
-  }
-
-  /* update parent dir */
-  rt = do_readinode( e2fs, p_path, &ino, &inode );
-  if( rt ) {
-    LOG_DEBUG( LOG_TAG, "do_readinode(%s, &ino, &inode); dailed", p_path );
-    free_split( p_path, r_path );
-    return -EIO;
-  }
-  inode.i_ctime = inode.i_mtime = tm;
-  rc = do_writeinode( e2fs, ino, &inode );
-  if( rc ) {
-    LOG_DEBUG( LOG_TAG, "do_writeinode(e2fs, ino, &inode); failed" );
-    free_split( p_path, r_path );
-    return -EIO;
-  }
-
-  free_split( p_path, r_path );
 
   return 0;
 }
 
 int Ext2FS::op_create( const char* path, mode_t mode, struct fuse_file_info* fi )
 {
-  int rt;
+  ext2_ino_t parent, child;
+  char* temp_path;
+  errcode_t err;
+  char* node_name, a;
+  int filetype;
+  struct ext2_inode_large inode;
+  int ret = 0;
 
   LOG_INFO( LOG_TAG, "path = %s, mode: 0%o", path, mode );
 
-  if( op_open( path, fi ) == 0 ) {
-    return 0;
+
+  temp_path = strdup( path );
+  if( !temp_path ) {
+    ret = -ENOMEM;
+    goto out;
+  }
+  node_name = strrchr( temp_path, '/' );
+  if( !node_name ) {
+    ret = -ENOMEM;
+    goto out;
+  }
+  node_name++;
+  a = *node_name;
+  *node_name = 0;
+
+  if( !fs_can_allocate( e2fs, 1 ) ) {
+    ret = -ENOSPC;
+    goto out2;
   }
 
-  rt = do_create( e2fs, path, mode, 0, NULL );
-  if( rt != 0 ) {
-    return rt;
+  err = ext2fs_namei( e2fs, EXT2_ROOT_INO, EXT2_ROOT_INO, temp_path, &parent );
+  if( err ) {
+    ret = translate_error( e2fs, 0, err );
+    goto out2;
   }
 
-  if( op_open( path, fi ) ) {
-    LOG_DEBUG( LOG_TAG, "op_open(path, fi); failed" );
-    return -EIO;
+  ret = check_inum_access( e2fs, parent, W_OK );
+  if( ret ) {
+    goto out2;
   }
 
-  return 0;
+  *node_name = a;
+
+  filetype = ext2_file_type( mode );
+
+  err = ext2fs_new_inode( e2fs, parent, mode, 0, &child );
+  if( err ) {
+    ret = translate_error( e2fs, parent, err );
+    goto out2;
+  }
+
+  LOG_DEBUG( LOG_TAG, "creating ino=%d/name=%s in dir=%d", child, node_name, parent );
+  err = ext2fs_link( e2fs, parent, node_name, child, filetype );
+  if( err == EXT2_ET_DIR_NO_SPACE ) {
+    err = ext2fs_expand_dir( e2fs, parent );
+    if( err ) {
+      ret = translate_error( e2fs, parent, err );
+      goto out2;
+    }
+
+    err = ext2fs_link( e2fs, parent, node_name, child, filetype );
+  }
+  if( err ) {
+    ret = translate_error( e2fs, parent, err );
+    goto out2;
+  }
+
+  ret = update_mtime( e2fs, parent, NULL );
+  if( ret ) {
+    goto out2;
+  }
+
+  memset( &inode, 0, sizeof( inode ) );
+  inode.i_mode = mode;
+  inode.i_links_count = 1;
+  inode.i_extra_isize = sizeof( struct ext2_inode_large ) - EXT2_GOOD_OLD_INODE_SIZE;
+  inode.i_uid = getuid();
+  inode.i_gid = getgid();
+  if( ext2fs_has_feature_extents( e2fs->super ) ) {
+    ext2_extent_handle_t handle;
+
+    inode.i_flags &= ~EXT4_EXTENTS_FL;
+    ret = ext2fs_extent_open2( e2fs, child,
+                               ( struct ext2_inode* )&inode, &handle );
+    if( ret ) {
+      return ret;
+    }
+    ext2fs_extent_free( handle );
+  }
+
+  err = ext2fs_write_new_inode( e2fs, child, ( struct ext2_inode* )&inode );
+  if( err ) {
+    ret = translate_error( e2fs, child, err );
+    goto out2;
+  }
+
+  //inode.i_generation = ff->next_generation++;
+  init_times( &inode );
+  err = ext2fs_write_inode_full( e2fs, child, ( struct ext2_inode* )&inode,
+                                 sizeof( inode ) );
+  if( err ) {
+    ret = translate_error( e2fs, child, err );
+    goto out2;
+  }
+
+  ext2fs_inode_alloc_stats2( e2fs, child, 1, 0 );
+
+  ret = op_open( path, fi );
+  if( ret ) {
+    goto out2;
+  }
+out2:
+  //pthread_mutex_unlock(&ff->bfl);
+out:
+  free( temp_path );
+  return ret;
+
+
 }
 
 }

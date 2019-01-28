@@ -59,14 +59,12 @@ protected:
 
   static void do_fillstatbuf( ext2_filsys e2fs, ext2_ino_t ino, struct ext2_inode* inode, struct stat* st );
 
-
-  static int do_create( ext2_filsys e2fs, const char* path, mode_t mode, dev_t dev, const char* fastsymlink );
-
-
+  static int fs_can_allocate( ext2_filsys fs, blk64_t num );
   static int check_inum_access( ext2_filsys fs, ext2_ino_t ino, mode_t mask );
   static int update_ctime( ext2_filsys fs, ext2_ino_t ino, struct ext2_inode_large* pinode );
   static int update_atime( ext2_filsys fs, ext2_ino_t ino );
   static int update_mtime( ext2_filsys fs, ext2_ino_t ino, struct ext2_inode_large* pinode );
+  static void init_times( struct ext2_inode_large* inode );
   static int unlink_file_by_name( ext2_filsys fs, const char* path );
   static int remove_inode( ext2_filsys e2fs, ext2_ino_t ino );
 

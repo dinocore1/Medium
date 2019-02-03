@@ -11,6 +11,8 @@ int Ext2FS::op_truncate( const char* path, off_t len )
   ext2_file_t efile;
   int ret;
 
+  LOG_INFO(LOG_TAG, "path=%s len=%d", path, len);
+
   err = ext2fs_namei( e2fs, EXT2_ROOT_INO, EXT2_ROOT_INO, path, &ino );
   if( err || ino == 0 ) {
     ret = translate_error( e2fs, 0, err );

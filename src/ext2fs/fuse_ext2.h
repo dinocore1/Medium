@@ -53,14 +53,14 @@ protected:
   static int __translate_error( ext2_filsys fs, errcode_t err, ext2_ino_t ino,
                                 const char* file, int line );
 
+  int stat_inode(ext2_filsys fs, ext2_ino_t ino, struct stat *statbuf);
+
   static int do_check( const char* path );
   static int do_check_split( const char* path, char** dirname, char** basename );
   static void free_split( char* dirname, char* basename );
 
   static int do_readinode( ext2_filsys e2fs, const char* path, ext2_ino_t* ino, struct ext2_inode* inode );
   static int do_writeinode( ext2_filsys e2fs, ext2_ino_t ino, struct ext2_inode* inode );
-
-  static void do_fillstatbuf( ext2_filsys e2fs, ext2_ino_t ino, struct ext2_inode* inode, struct stat* st );
 
   static int ext2_file_type( unsigned int mode );
 

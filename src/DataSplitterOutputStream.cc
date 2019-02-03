@@ -51,6 +51,7 @@ int DataSplitterOutputStream::write( uint8_t* buf, size_t off, size_t len )
     if( rollingHash <= DIFFICULTY ) {
       mOutput->close();
       mCallback->onNewBlock( mStrongHash->finalize() );
+      mOutput.reset();
 
       mWindow.clear();
       mStrongHash->reset();

@@ -95,6 +95,63 @@ static void get_now( struct timespec* now )
   now->tv_nsec = 0;
 }
 
+static blkcnt_t blocks_from_inode(ext2_filsys fs, struct ext2_inode_large *inode)
+{
+	blkcnt_t b;
+
+	b = inode->i_blocks;
+	if (ext2fs_has_feature_huge_file(fs->super))
+		b += ((long long) inode->osd2.linux2.l_i_blocks_hi) << 32;
+
+	if (!ext2fs_has_feature_huge_file(fs->super) ||
+	    !(inode->i_flags & EXT4_HUGE_FILE_FL))
+		b *= fs->blocksize / 512;
+	b *= EXT2FS_CLUSTER_RATIO(fs);
+
+	return b;
+}
+
+int Ext2FS::stat_inode(ext2_filsys fs, ext2_ino_t ino, struct stat *statbuf)
+{
+	struct ext2_inode_large inode;
+	dev_t fakedev = 0;
+	errcode_t err;
+	int ret = 0;
+	struct timespec tv;
+
+	memset(&inode, 0, sizeof(inode));
+	err = ext2fs_read_inode_full(fs, ino, (struct ext2_inode *)&inode, sizeof(inode));
+	if (err) {
+		return translate_error(fs, ino, err);
+  }
+
+	memcpy(&fakedev, fs->super->s_uuid, sizeof(fakedev));
+	statbuf->st_dev = fakedev;
+	statbuf->st_ino = ino;
+	statbuf->st_mode = inode.i_mode;
+	statbuf->st_nlink = inode.i_links_count;
+	statbuf->st_uid = inode.i_uid;
+	statbuf->st_gid = inode.i_gid;
+	statbuf->st_size = EXT2_I_SIZE(&inode);
+	statbuf->st_blksize = fs->blocksize;
+	statbuf->st_blocks = blocks_from_inode(fs, &inode);
+	EXT4_INODE_GET_XTIME(i_atime, &tv, &inode);
+	statbuf->st_atime = tv.tv_sec;
+	EXT4_INODE_GET_XTIME(i_mtime, &tv, &inode);
+	statbuf->st_mtime = tv.tv_sec;
+	EXT4_INODE_GET_XTIME(i_ctime, &tv, &inode);
+	statbuf->st_ctime = tv.tv_sec;
+	if (LINUX_S_ISCHR(inode.i_mode) ||
+	    LINUX_S_ISBLK(inode.i_mode)) {
+		if (inode.i_block[0])
+			statbuf->st_rdev = inode.i_block[0];
+		else
+			statbuf->st_rdev = inode.i_block[1];
+	}
+
+	return ret;
+}
+
 int Ext2FS::open( const char* filepath, int flags )
 {
   int err;

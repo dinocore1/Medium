@@ -8,6 +8,8 @@ int Ext2FS::op_unlink( const char* path )
   errcode_t err;
   int ret = 0;
 
+  LOG_INFO(LOG_TAG, "path=%s", path);
+
   err = ext2fs_namei( e2fs, EXT2_ROOT_INO, EXT2_ROOT_INO, path, &ino );
   if( err ) {
     ret = translate_error( e2fs, 0, err );

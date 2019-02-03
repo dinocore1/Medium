@@ -110,6 +110,8 @@ void ScanTask::run()
     filelen -= bytes_read;
 
     dout.write( buf, 0, bytes_read );
+
+    LOG_INFO(LOG_TAG, "%d bytes left", filelen);
   }
 
   dout.close();

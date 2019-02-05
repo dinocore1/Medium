@@ -17,6 +17,7 @@
 
 #include <baseline/Baseline.h>
 #include <baseline/RefBase.h>
+#include <baseline/RWLock.h>
 
 namespace medium {
 
@@ -77,7 +78,9 @@ protected:
 
   static const char* LOG_TAG;
   struct struct_ext2_filsys filsys;
+
   std::map<ext2_ino_t, FileHandle*> mFiles;
+  baseline::RWLock mLock;
 
 
 

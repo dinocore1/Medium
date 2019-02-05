@@ -15,9 +15,11 @@ int Ext2FS::op_release( const char* path, struct fuse_file_info* fi )
   LOG_INFO( LOG_TAG, "path = %s", path );
 
   if (file->open_flags & EXT2_FILE_WRITE) {
-
     ext2_ino_t ino = ext2fs_file_get_inode_num(file->efile);
     struct ext2_inode* inode = ext2fs_file_get_inode(file->efile);
+
+    mFiles.erase(ino);
+
     err = ext2fs_write_inode(e2fs, ino, inode);
     if(err) {
       ret = translate_error(e2fs, file->ino, err);

@@ -11,6 +11,8 @@
 #include <string.h>
 #include <stdlib.h>
 
+#include <map>
+
 #include <ext2fs/ext2fs.h>
 
 #include <baseline/Baseline.h>
@@ -75,6 +77,7 @@ protected:
 
   static const char* LOG_TAG;
   struct struct_ext2_filsys filsys;
+  std::map<ext2_ino_t, FileHandle*> mFiles;
 
 
 

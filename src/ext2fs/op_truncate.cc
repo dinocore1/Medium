@@ -24,10 +24,17 @@ int Ext2FS::op_truncate( const char* path, off_t len )
     return ret;
   }
 
-  err = ext2fs_file_open( e2fs, ino, EXT2_FILE_WRITE, &efile );
-  if( err ) {
-    ret = translate_error( e2fs, ino, err );
-    return ret;
+  auto it = mFiles.find(ino);
+  if(it != mFiles.end()) {
+    efile = it->second->efile;
+  } else {
+
+    err = ext2fs_file_open( e2fs, ino, EXT2_FILE_WRITE, &efile );
+    if( err ) {
+      ret = translate_error( e2fs, ino, err );
+      return ret;
+    }
+
   }
 
   err = ext2fs_file_set_size2( efile, len );
@@ -36,19 +43,20 @@ int Ext2FS::op_truncate( const char* path, off_t len )
     return ret;
   }
 
+  if(it == mFiles.end()) {
+    err = ext2fs_file_close( efile );
+    if( ret ) {
+      return ret;
+    }
+    if( err ) {
+      ret = translate_error( e2fs, ino, err );
+      return ret;
+    }
 
-  err = ext2fs_file_close( efile );
-  if( ret ) {
-    return ret;
-  }
-  if( err ) {
-    ret = translate_error( e2fs, ino, err );
-    return ret;
-  }
-
-  ret = update_mtime( e2fs, ino, NULL );
-  if( ret ) {
-    return ret;
+    ret = update_mtime( e2fs, ino, NULL );
+    if( ret ) {
+      return ret;
+    }
   }
 
   return 0;

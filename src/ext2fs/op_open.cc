@@ -73,7 +73,12 @@ int Ext2FS::op_open( const char* path, struct fuse_file_info* fi )
     return ret;
   }
 
-  fi->fh = ( uint64_t ) file.release();
+  FileHandle* handle = file.release();
+  fi->fh = ( uint64_t ) handle;
+
+  if(handle->open_flags & EXT2_FILE_WRITE) {
+    mFiles[handle->ino] = handle;
+  }
 
   return 0;
 }

@@ -71,8 +71,8 @@ int LiveExt2FS::op_release( const char* path, struct fuse_file_info* fi )
   ext2_ino_t ino = file->ino;
   int retval = Ext2FS::op_release( path, fi );
   if( retval == 0 && mOpenWritableFiles.erase( ino ) ) {
-    //LOG_INFO( "", "queue ino for scanning: %d", ino );
-    //mScanQueue->schedule( new ScanTask( *this, ino, mPartsFS ), 5000 );
+    LOG_INFO( "", "queue ino for scanning: %d", ino );
+    mScanQueue->schedule( new ScanTask( *this, ino, mPartsFS ), 5000 );
   }
 }
 
